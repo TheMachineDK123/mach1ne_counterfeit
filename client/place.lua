@@ -41,6 +41,9 @@ local function startPlacing(itemName)
     if not kind then return end
     if IsPedInAnyVehicle(ped, false) then return CF.notify(locale('place_vehicle'), 'error') end
 
+    local propDef = Config.Props[itemName]
+    if propDef and propDef.police and not CF.isPolice() then return CF.notify(locale('err_police_item'), 'error') end
+
     local hash = CF.resolveModel(CF.placeModels(itemName))
     if not hash or not pcall(st.requestModel, hash, 5000) then
         return CF.notify(locale('place_model'), 'error')

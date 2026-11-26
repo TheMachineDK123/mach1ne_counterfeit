@@ -121,7 +121,7 @@ local function updateAnim(o, e, t)
     end
 end
 
--- ===================== Interaktion (st_libs 3D-tekst) =====================
+-- ===================== Interaktion (ox_target eller st_libs, se client/interact.lua) =====================
 
 local function uiId(id) return 'mach1ne_counterfeit_' .. id end
 local function canAct() return not CF.busy end
@@ -180,9 +180,16 @@ local function buildOptions(o, t)
             add(locale('ui_pickup', def.label:lower()), 'G', 47, 0.25, function() CF.pickup(id) end)
         end
     else
-        add(locale('ui_pickup', def.label:lower()), 'G', 47, 0.0, function() CF.pickup(id) end)
+        if def.screen == 'laptop' then
+            add(locale('ui_laptop'), 'E', 38, 0.0, function() CF.openLaptop(id) end)
+        elseif def.screen == 'uv' then
+            add(locale('ui_uv_scan'), 'E', 38, 0.0, function() CF.scanDesk(id) end, canPolice)
+        end
+        add(locale('ui_pickup', def.label:lower()), 'G', 47, 0.25, function() CF.pickup(id) end)
     end
-    add(locale('ui_seize'), 'H', 74, 0.5, function() CF.seize(id) end, canPolice)
+    if not def.police then
+        add(locale('ui_seize'), 'H', 74, 0.5, function() CF.seize(id) end, canPolice)
+    end
     return opts
 end
 
@@ -201,10 +208,7 @@ end
 local function refreshUI(o, e, t)
     local key = uiKeyOf(o, t)
     if e.uiKey == key then return end
-    local opts = buildOptions(o, t)
-    if e.uiKey then st.remove3DTextUIFromCoords(uiId(o.id)) end
-    st.create3DTextUIOnCoords(uiId(o.id), opts)
-    e.uiKey = key
+    if Interact.object(uiId(o.id), e.obj, buildOptions(o, t)) then e.uiKey = key end
 end
 
 -- ===================== Spawn / despawn =====================
@@ -212,8 +216,8 @@ end
 local function despawn(id)
     local e = ents[id]
     if not e then return end
+    Interact.clear(uiId(id))
     if e.obj and DoesEntityExist(e.obj) then DeleteEntity(e.obj) end
-    if e.uiKey then st.remove3DTextUIFromCoords(uiId(id)) end
     ents[id] = nil
 end
 
@@ -221,6 +225,8 @@ function CF.entity(id)
     local e = ents[id]
     return e and e.obj
 end
+
+CF.stateOf = function(o, t) return stateOf(o, t) end
 
 local sync
 
@@ -230,7 +236,11 @@ local function spawnModel(o, e, hash, list)
         local ok = pcall(st.requestModel, hash, 5000)
         e.loading = false
         if not ok or ents[o.id] ~= e or e.model ~= hash then return end
-        if e.obj and DoesEntityExist(e.obj) then DeleteEntity(e.obj) end
+        if e.obj and DoesEntityExist(e.obj) then
+            if Interact.target then Interact.clear(uiId(o.id)) end
+            DeleteEntity(e.obj)
+        end
+        if Interact.target then e.uiKey = nil end      -- ox_target sidder på entity'en: bind igen
         local obj = CreateObjectNoOffset(hash, o.pos.x, o.pos.y, o.pos.z, false, false, false)
         SetEntityHeading(obj, o.h or 0.0)
         FreezeEntityPosition(obj, true)
@@ -508,27 +518,18 @@ local function zoneLabel(pos)
     return street ~= '' and ('%s, %s'):format(street, zone) or zone
 end
 
-exports('useScanner', function()
-    if CF.busy then return end
-    CF.busy = true
-    local A = Config.Anims.scan
-    local done = progress(locale('scan_progress'), A.duration, A)
-    ClearPedTasks(PlayerPedId())
-    CF.busy = false
-    if not done then return end
-
-    local list, police = st.callback.await('mach1ne_counterfeit:scan', 500)
+-- Viser scanningsresultatet (bruges af håndscanneren og politiets scanner-bord).
+function CF.showScanResults(list, police)
     if not list or #list == 0 then return CF.notify(locale('scan_none'), 'inform') end
-
     local options = {}
     for _, e in ipairs(list) do
         local desc = locale(e.count == 1 and 'scan_fake_one' or 'scan_fake_other', e.count)
         local meta
         if police and e.created then
-            local area = zoneLabel(e.pos)
-            desc = ('%s\nTalt op: %s · Sedeltæller #%d (%s)'):format(desc, e.createdText or '?',
-                e.counterId, e.active and locale('scan_still_placed') or locale('scan_removed'))
-            meta = { { label = locale('scan_area'), value = area }, { label = locale('scan_batch'), value = locale('scan_batch_value', e.batch or 0) } }
+            desc = locale('scan_origin', desc, e.createdText or '?', e.counterId,
+                e.active and locale('scan_still_placed') or locale('scan_removed'))
+            meta = { { label = locale('scan_area'), value = zoneLabel(e.pos) },
+                     { label = locale('scan_batch'), value = locale('scan_batch_value', e.batch or 0) } }
         end
         options[#options + 1] = {
             title = locale('scan_serial', e.serial), description = desc, icon = 'money-bill-wave', metadata = meta,
@@ -540,6 +541,18 @@ exports('useScanner', function()
     end
     lib.registerContext({ id = 'mach1ne_counterfeit_scan', title = locale('scan_title'), options = options })
     lib.showContext('mach1ne_counterfeit_scan')
+end
+
+exports('useScanner', function()
+    if CF.busy then return end
+    CF.busy = true
+    local A = Config.Anims.scan
+    local done = progress(locale('scan_progress'), A.duration, A)
+    ClearPedTasks(PlayerPedId())
+    CF.busy = false
+    if not done then return end
+    local list, police = st.callback.await('mach1ne_counterfeit:scan', 500)
+    CF.showScanResults(list, police)
 end)
 
 AddEventHandler('onResourceStop', function(resource)

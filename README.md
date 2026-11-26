@@ -21,10 +21,10 @@
 - [Sådan laver du pengene](#sådan-laver-du-pengene)
 - [Installation](#installation)
 - [Styring](#styring)
+- [Skærmene](#skærmene)
 - [Politiet](#politiet)
 - [Indstillinger](#indstillinger)
 - [Animationer](#animationer)
-
 
 ## Sådan laver du pengene
 
@@ -34,7 +34,7 @@
 | 2 | **Tørresnor** | 2 våde ark | 2 tørre ark | 8 min |
 | 3 | **Skæremaskine** | 1 tørt ark | 8 sedler | 5 sek |
 | 4 | **Sedeltæller** | 25 sedler + 1 papirbånd | 1 bundt | 4 sek |
-| 5 | **Hæleren** | Bundter | Sorte penge (45 % af værdien) | |
+| 5 | **Hæleren** | Bundter | Sorte penge (ca. 45 % af værdien, svinger) | |
 
 Har du materialer nok, kan du lave flere ad gangen. Alle tal kan ændres i `config.lua`.
 
@@ -60,7 +60,9 @@ Har du materialer nok, kan du lave flere ad gangen. Alle tal kan ændres i `conf
 
 > [!NOTE]
 > Hæleren står på Elysian Island. Du kan flytte ham i `config.lua` under `Config.Dealer`.
-> UV-scanneren kan ikke købes hos hæleren. Giv den til politiet, f.eks. i deres våbenlager.
+> UV-scannerne (`cf_scanner` til lommen og `cf_uvscanner` til bordet) kan ikke købes hos hæleren. Giv dem til politiet, f.eks. i deres våbenlager.
+>
+> Bruger du ox_target, skal den startes før `mach1ne_counterfeit`. Vil du hellere have 3D-tekst, så sæt `Config.Interaction = 'st_libs'`.
 
 ## Styring
 
@@ -75,18 +77,39 @@ Har du materialer nok, kan du lave flere ad gangen. Alle tal kan ændres i `conf
 
 **Ved maskinerne**
 
+Med ox_target sigter du bare på tingen og vælger i menuen. Med 3D-tekst bruger du tasterne herunder.
+
 | | `E` | `G` (kun ejeren) | `H` (kun politi) |
 | --- | --- | --- | --- |
 | Trykpresse og tørresnor | Fyld, se tid eller tøm | Pak sammen (skal være tom) | Beslaglæg |
 | Skæremaskine og sedeltæller | Gå i gang | Pak sammen | Beslaglæg |
 | Arbejdsbord | | Pak sammen | Beslaglæg |
+| Laptop | Se dine maskiner | Pak sammen | Beslaglæg |
+| UV-scanner (bord) | Scan bundter (kun politi) | Pak sammen | |
 
 Står dit værksted inde i et hus, kan kun folk, der er inde i huset, se det.
+
+## Skærmene
+
+Flere af tingene har en skærm, der viser hvad der sker lige nu:
+
+| Ting | Skærmen viser |
+| --- | --- |
+| **Sedeltæller** | Tæller sedlerne op, mens den kører, og viser bagefter serienummeret på bundtet |
+| **Tørresnor** | En fugtmåler, der falder, mens arkene tørrer, og skriver *TØR*, når de er klar |
+| **Laptop** | Alle maskiner i nærheden: om de er tomme, kører eller er færdige, og hvor lang tid der er tilbage |
+| **UV-scanner (bord)** | Resultatet af politiets seneste scanning: *FALSK*, serienummer, område og dato |
+| **Kurstavle ved hæleren** | Hvad han betaler for et bundt lige nu, om prisen er på vej op eller ned, og hvor stor efterspørgslen er |
+
+Står der flere af samme slags, er det den, du står tættest på, der er tændt.
+
+**Hælerens pris** falder, når der bliver solgt mange bundter, og stiger langsomt igen, når der er roligt. Det kan du justere under `Config.Dealer.sell`.
 
 ## Politiet
 
 - **Naboerne ringer:** mens pressen kører, kan politiet få et område vist på kortet.
-- **UV-scanner:** alle kan se, at sedlerne er falske. Politiet kan også se, hvornår bundtet blev lavet, og cirka hvor. De kan sætte et punkt på kortet.
+- **UV-scanner i lommen:** alle kan se, at sedlerne er falske. Politiet kan også se, hvornår bundtet blev lavet, og cirka hvor. De kan sætte et punkt på kortet.
+- **UV-scanner på bordet:** politiet kan stille en scanner op på stationen. Resultatet kommer også op på scannerens skærm, så kollegaerne kan se med.
 - **Beslaglæg:** tryk `H` ved en maskine for at tage den.
 
 ## Indstillinger
@@ -96,11 +119,13 @@ Alt kan ændres i [`config.lua`](config.lua):
 | Indstilling | Hvad den gør |
 | --- | --- |
 | `Config.Locale` | Sproget: `da` eller `en`. Teksterne ligger i [`locales/`](locales) |
+| `Config.Interaction` | `'ox_target'` eller `'st_libs'` (3D-tekst) |
+| `Config.Screens` | Slå skærmene til og fra, og hvor tæt på man skal være |
 | `Config.Stations` | Hvad maskinerne skal bruge, hvad de giver, og hvor lang tid det tager |
 | `Config.Bundle` | Hvor mange sedler der er i et bundt, og hvad det er værd |
 | `Config.Noise` | Hvor tit naboerne ringer |
 | `Config.Police` | Hvilke jobs der tæller som politi |
-| `Config.Dealer` | Hvor hæleren står, hvad han sælger, og hvad han betaler |
+| `Config.Dealer` | Hvor hæleren og kurstavlen står, hvad han sælger, og hvordan prisen svinger |
 | `Config.StationLimits` og `Config.Props` | Hvor mange maskiner hver spiller må have |
 
 ## Animationer

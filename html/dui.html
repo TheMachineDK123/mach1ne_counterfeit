@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- DUI-skærme til mach1ne_counterfeit. Samme side bruges til alle skærme: ?screen=counter|hygro|laptop|uv|board.
+     Data kommer fra client/screens.lua via SendDuiMessage. -->
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100vw; height: 100vh; overflow: hidden; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #fff; }
+    .screen { display: none; width: 100%; height: 100%; }
+    .on { display: flex; }
+
+    /* ---------- sedeltæller: grøn LCD ---------- */
+    #counter { background: #06140f; color: #6dffb0; flex-direction: column; justify-content: center; align-items: center;
+               font-family: 'Consolas', 'Courier New', monospace; text-shadow: 0 0 6px #2bff8c; }
+    #counter .big { font-size: 48vh; font-weight: 700; line-height: 1; letter-spacing: 1vw; }
+    #counter .small { font-size: 14vh; opacity: .8; margin-top: 4vh; }
+    #counter .bar { width: 84%; height: 7vh; margin-top: 5vh; border: 1px solid #2bff8c55; }
+    #counter .bar i { display: block; height: 100%; background: #2bff8c; width: 0; transition: width .25s linear; }
+
+    /* ---------- fugtmåler ---------- */
+    #hygro { background: #07120c; flex-direction: column; justify-content: center; align-items: center;
+             font-family: 'Consolas', 'Courier New', monospace; }
+    #hygro .big { font-size: 56vh; font-weight: 700; line-height: 1; }
+    #hygro .small { font-size: 15vh; opacity: .8; margin-top: 3vh; }
+
+    /* ---------- laptop ---------- */
+    #laptop { background: linear-gradient(160deg, #0d1b2a, #10263a); flex-direction: column; padding: 3vh 3vw; }
+    #laptop header { display: flex; justify-content: space-between; font-size: 7vh; font-weight: 700; letter-spacing: .3vw;
+                     border-bottom: 1px solid #ffffff22; padding-bottom: 2vh; margin-bottom: 2vh; color: #9ad1ff; }
+    #laptop .row { display: grid; grid-template-columns: 34% 22% 1fr; align-items: center; gap: 2vw;
+                   font-size: 6vh; padding: 1.4vh 0; border-bottom: 1px solid #ffffff10; }
+    #laptop .badge { font-size: 4.6vh; padding: .6vh 1vw; border-radius: 1vh; text-align: center; font-weight: 600; }
+    #laptop .bar { height: 2.4vh; background: #ffffff18; border-radius: 1vh; overflow: hidden; }
+    #laptop .bar i { display: block; height: 100%; background: #4fb3ff; }
+    #laptop .none, #laptop .more { font-size: 5.5vh; opacity: .6; margin-top: 2vh; }
+    .s-empty, .s-idle { background: #ffffff1a; color: #ccd; }
+    .s-working, .s-active { background: #1f6feb55; color: #9ad1ff; }
+    .s-done { background: #2ea04366; color: #8ff0a4; }
+    .s-spoiled { background: #da363366; color: #ffaba8; }
+
+    /* ---------- UV-scanner ---------- */
+    #uv { background: #12081d; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+          color: #d6b3ff; text-shadow: 0 0 6px #9b5cff; }
+    #uv .big { font-size: 34vh; font-weight: 800; letter-spacing: .6vw; line-height: 1.05; }
+    #uv .small { font-size: 12vh; opacity: .85; margin-top: 2vh; }
+    #uv.fake .big { color: #ff6b8a; text-shadow: 0 0 8px #ff2e63; }
+
+    /* ---------- kurstavle ---------- */
+    #board { background: radial-gradient(circle at 30% 20%, #1c1a12, #0b0a07); flex-direction: column; justify-content: center;
+             align-items: center; text-align: center; }
+    #board .title { font-size: 13vh; font-weight: 800; letter-spacing: 1vw; color: #ffc83d; }
+    #board .price { font-size: 26vh; font-weight: 800; margin-top: 1vh; font-family: 'Consolas', monospace; }
+    #board .per { font-size: 7vh; opacity: .7; }
+    #board .line { display: flex; gap: 4vw; margin-top: 4vh; font-size: 7.5vh; align-items: center; }
+    #board .up { color: #5cff8a; } #board .down { color: #ff5c5c; } #board .flat { color: #ccc; }
+</style>
+</head>
+<body>
+    <div id="counter" class="screen"><div class="big" id="c-big">0</div><div class="bar" id="c-bar"><i></i></div><div class="small" id="c-small"></div></div>
+    <div id="hygro" class="screen"><div class="big" id="h-big">--</div><div class="small" id="h-small"></div></div>
+    <div id="laptop" class="screen"><header><span id="l-title"></span><span id="l-clock"></span></header><div id="l-rows"></div></div>
+    <div id="uv" class="screen"><div class="big" id="u-big"></div><div class="small" id="u-small"></div></div>
+    <div id="board" class="screen">
+        <div class="title" id="b-title"></div>
+        <div class="price" id="b-price"></div>
+        <div class="per" id="b-per"></div>
+        <div class="line"><span id="b-trend"></span><span id="b-demand"></span></div>
+    </div>
+
+<script>
+const type = new URLSearchParams(location.search).get('screen') || 'counter';
+document.getElementById(type).classList.add('on');
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+const render = {
+    counter(d, t) {
+        const bar = $('c-bar');
+        if (d.state === 'active') {
+            $('c-big').textContent = String(d.count).padStart(3, '0');
+            $('c-small').textContent = `${t.of} ${d.total} ${t.pcs}`;
+            bar.style.display = 'block';
+            bar.firstElementChild.style.width = Math.min(100, d.count / d.total * 100) + '%';
+        } else if (d.state === 'done') {
+            $('c-big').textContent = d.serial;
+            $('c-big').style.fontSize = '30vh';
+            $('c-small').textContent = `${d.bundles} ${t.bundles}`;
+            bar.style.display = 'none';
+            return;
+        } else {
+            $('c-big').textContent = t.ready;
+            $('c-small').textContent = '0 ' + t.pcs;
+            bar.style.display = 'none';
+        }
+        $('c-big').style.fontSize = '';
+    },
+    hygro(d, t) {
+        const big = $('h-big');
+        if (d.state === 'working') {
+            big.textContent = d.humidity + '%';
+            big.style.color = d.humidity > 50 ? '#7fd4ff' : (d.humidity > 20 ? '#ffd76b' : '#7dff9e');
+            $('h-small').textContent = `${t.humidity} · ${d.minutes} ${t.min}`;
+        } else if (d.state === 'done') {
+            big.textContent = t.dry; big.style.color = '#7dff9e'; $('h-small').textContent = '✓';
+        } else {
+            big.textContent = '-- %'; big.style.color = '#6a8'; $('h-small').textContent = t.empty;
+        }
+    },
+    laptop(d, t) {
+        $('l-title').textContent = t.title;
+        $('l-clock').textContent = d.clock;
+        const rows = $('l-rows');
+        rows.innerHTML = '';
+        if (!d.rows.length) { rows.innerHTML = `<div class="none">${t.none}</div>`; return; }
+        for (const r of d.rows) {
+            const busy = r.state === 'working' || r.state === 'active';
+            const label = r.state === 'working' && r.minutes ? `${r.minutes} ${t.min}` : (t.states[r.state] || r.state);
+            rows.insertAdjacentHTML('beforeend', `<div class="row"><span>${r.label}</span>
+                <span class="badge s-${r.state}">${label}</span>
+                <span class="bar"><i style="width:${busy ? r.progress : (r.state === 'done' ? 100 : 0)}%"></i></span></div>`);
+        }
+        if (d.more > 0) rows.insertAdjacentHTML('beforeend', `<div class="more">${t.more.replace('%d', d.more)}</div>`);
+    },
+    uv(d, t) {
+        const el = $('uv');
+        el.classList.toggle('fake', d.state === 'fake');
+        if (d.state === 'fake') {
+            $('u-big').textContent = t.fake;
+            const where = [d.serial, d.area, d.created].filter(Boolean).join(' · ');
+            $('u-small').textContent = `${d.total} ${t.bundles}` + (where ? ` · ${where}` : '');
+        } else if (d.state === 'none') {
+            $('u-big').textContent = t.none; $('u-small').textContent = '';
+        } else {
+            $('u-big').textContent = 'UV'; $('u-small').textContent = t.ready;
+        }
+    },
+    board(d, t) {
+        $('b-title').textContent = t.title;
+        if (d.state !== 'open') { $('b-price').textContent = t.closed; $('b-per').textContent = ''; return; }
+        $('b-price').textContent = `${fmt(d.price)} ${t.currency}`;
+        $('b-per').textContent = `${t.perBundle} · ${d.rate}%`;
+        const tr = $('b-trend');
+        tr.className = d.trend > 0 ? 'up' : (d.trend < 0 ? 'down' : 'flat');
+        tr.textContent = d.trend > 0 ? '▲' : (d.trend < 0 ? '▼' : '■');
+        $('b-demand').textContent = t.demand[d.demand] || '';
+    },
+};
+
+window.addEventListener('message', e => {
+    let d = e.data;
+    if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return; } }
+    if (!d || d.screen !== type || !render[type]) return;
+    render[type](d, d.txt || {});
+});
+</script>
+</body>
+</html>

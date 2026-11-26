@@ -21,8 +21,9 @@ local function sell()
     local have = exports.ox_inventory:Search('count', Config.Items.bundle) or 0
     if have < 1 then return CF.notify(locale('dealer_no_bundles'), 'error') end
     local S = D.sell
-    local each = math.floor(Config.Bundle.value * S.rate)
-    local input = lib.inputDialog('Sælg bundter', {
+    local r = GlobalState.m1cfRate
+    local each = r and r.price or math.floor(Config.Bundle.value * S.rate)
+    local input = lib.inputDialog(locale('dealer_sell'), {
         { type = 'number', label = locale('dealer_sell_amount', each), default = math.min(have, S.max), min = 1, max = math.min(have, S.max), required = true },
     })
     local amount = input and tonumber(input[1])
@@ -39,7 +40,7 @@ local function openShop()
     local options = {
         {
             title = locale('dealer_sell'),
-            description = locale('dealer_sell_desc', math.floor(D.sell.rate * 100)),
+            description = locale('dealer_sell_desc', math.floor(((GlobalState.m1cfRate or {}).rate or D.sell.rate) * 100 + 0.5)),
             icon = 'sack-dollar',
             onSelect = sell,
         },
@@ -67,18 +68,19 @@ local function spawn()
     if D.scenario then TaskStartScenarioInPlace(ped, D.scenario, 0, true) end
     SetModelAsNoLongerNeeded(hash)
 
-    st.create3DTextUIOnEntity('mach1ne_counterfeit_dealer', {
+    Interact.entity('mach1ne_counterfeit_dealer', ped, {
         {
-            id = 'mach1ne_counterfeit_dealer_shop', text = locale('dealer_talk'),
-            displayDist = 8.0, interactDist = 2.5, key = 'E', keyNum = 38,
-            entity = ped, onSelect = openShop,
+            id = 'mach1ne_counterfeit_dealer_shop', text = locale('dealer_talk'), icon = 'fa-solid fa-comments-dollar',
+            displayDist = 8.0, interactDist = 2.5, key = 'E', keyNum = 38, onSelect = openShop,
         },
     })
+    CF.spawnBoard(D.coords)
 end
 
 local function despawn()
     if not ped then return end
-    pcall(st.remove3DTextUIFromEntity, 'mach1ne_counterfeit_dealer')
+    Interact.clear('mach1ne_counterfeit_dealer')
+    CF.removeBoard()
     if DoesEntityExist(ped) then DeleteEntity(ped) end
     ped = nil
 end

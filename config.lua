@@ -2,6 +2,11 @@ Config = {}
 
 Config.Locale = 'da'   -- sprogfil i locales/ (da, en). Labels på maskiner og items står her i config.lua
 
+-- Hvordan man interagerer med maskiner, laptop, scanner og hæler:
+--   'ox_target' = sigt på tingene med ox_target (kræver ox_target)
+--   'st_libs'   = 3D-tekst med tastetryk (E / G / H) fra st_libs
+Config.Interaction = 'ox_target'
+
 -- ============================================================
 -- ITEMS (registreret i ox_inventory/data/items.lua)
 -- ============================================================
@@ -96,6 +101,7 @@ Config.Stations = {
         seconds     = 4.0,                            -- pr. bundt
         workText    = 'Tæller og bundter sedler...',
         uiHeight    = 0.4,
+        doneSeconds = 90,                             -- så længe displayet viser serienummeret bagefter
         work = { offset = vec3(0.0, -0.55, 0.0), clip = 'count' },                        -- tælleren står på et bord (0,9 m)
         anim = { active = 'counter_count' },
         models = {
@@ -120,6 +126,35 @@ Config.Props = {
     cf_table = {
         label = 'Arbejdsbord', maxPerPlayer = 6, uiHeight = 1.0,
         models = { default = { 'm1_cf_table', 'bkr_prop_fakeid_table' } },
+    },
+    -- Laptop: skærmen viser status for alle maskiner i nærheden (DUI). E åbner listen.
+    cf_laptop = {
+        label = 'Laptop', maxPerPlayer = 2, uiHeight = 0.35, screen = 'laptop',
+        models = { default = { 'm1_cf_laptop', 'prop_laptop_01a' } },
+    },
+    -- UV-scanner til politiet: kun politiet kan stille den op og bruge den. Skærmen viser resultatet.
+    cf_uvscanner = {
+        label = 'UV-scanner', maxPerPlayer = 2, uiHeight = 0.4, screen = 'uv', police = true,
+        models = { default = { 'm1_cf_uvscanner', 'prop_cs_server_drive' } },
+    },
+}
+
+-- ============================================================
+-- SKÆRME (DUI): live-billeder på modellernes skærme
+-- ============================================================
+-- Skærmen på den nærmeste maskine af hver slags bliver levende (GTA kan kun skifte en tekstur for alle
+-- eksemplarer på én gang, så de andre viser standardbilledet). txd/texture skal matche stream/m1_cf_tex.ytd.
+Config.Screens = {
+    enabled  = true,
+    txd      = 'm1_cf_tex',
+    distance = 12.0,           -- hvor tæt på man skal være, før skærmen tændes
+    rate     = 250,            -- ms mellem opdateringer
+    types = {
+        counter = { texture = 'm1f_lcd_d',        size = { 256, 128 } },   -- sedeltællerens display
+        hygro   = { texture = 'm1f_scr_hygro_d',  size = { 256, 128 } },   -- fugtmåleren på tørresnoren
+        laptop  = { texture = 'm1f_scr_laptop_d', size = { 512, 288 }, range = 25.0 },  -- range = hvor langt laptoppen "ser" maskiner
+        uv      = { texture = 'm1f_scr_uv_d',     size = { 256, 128 } },   -- politiets UV-scanner
+        board   = { texture = 'm1f_scr_board_d',  size = { 512, 288 }, distance = 25.0 },  -- kurstavlen hos hæleren
     },
 }
 
@@ -172,9 +207,16 @@ Config.Dealer = {
     account  = 'money',            -- betaling for varer
     sell = {
         account = 'black_money',   -- udbetaling for bundter
-        rate    = 0.45,            -- andel af pålydende
+        rate    = 0.45,            -- normal andel af pålydende
         max     = 20,              -- max bundter pr. handel
+        -- Kursen svinger: den falder, når der bliver solgt meget, og stiger langsomt igen.
+        minRate        = 0.30,
+        maxRate        = 0.55,
+        dropPerBundle  = 0.004,    -- så meget falder kursen pr. solgt bundt
+        recoverPerHour = 0.03,     -- så meget stiger den igen pr. time (mod 'rate', og lidt over i rolige perioder)
     },
+    -- Kurstavle ved hæleren (skærm med dagens kurs). offset er i forhold til hæleren.
+    board = { enabled = true, offset = vec3(1.4, 0.4, -1.0), headingOffset = 180.0 },  -- 180 = skærmen vender samme vej som hæleren
     items = {
         { name = 'cf_paper',   label = 'Bomuldspapir',      price = 150 },
         { name = 'cf_ink',     label = 'Sikkerhedsblæk',    price = 400 },
@@ -184,6 +226,7 @@ Config.Dealer = {
         { name = 'cf_cutter',  label = 'Skæremaskine',      price = 6000 },
         { name = 'cf_counter', label = 'Sedeltæller',       price = 4500 },
         { name = 'cf_table',   label = 'Arbejdsbord',       price = 1500 },
+        { name = 'cf_laptop',  label = 'Laptop',            price = 2500 },
     },
 }
 

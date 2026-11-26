@@ -216,6 +216,7 @@ st.callback.register('mach1ne_counterfeit:place', function(src, itemName, pos, h
         data = { station = itemName, batches = 0 }
     elseif kind == 'prop' then
         local def = Config.Props[itemName]
+        if def.police and not isPolice(src) then return false, locale('err_police_item') end
         if countOwned(identifier, 'prop', itemName) >= def.maxPerPlayer then
             return false, locale('err_max_type', def.maxPerPlayer)
         end
@@ -345,7 +346,7 @@ st.callback.register('mach1ne_counterfeit:startWork', function(src, id)
     local duration = math.ceil(def.seconds * batches)
     Work[o.id] = { src = src, identifier = getIdentifier(src), batches = batches, finishAt = now() + duration - 1,
                    startMs = GetGameTimer() }
-    o.data = { station = o.type, activeUntil = now() + duration }
+    o.data = { station = o.type, activeUntil = now() + duration, batches = batches, duration = duration }
     TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data, 0)
     return true, batches, duration * 1000
 end)
@@ -396,7 +397,8 @@ st.callback.register('mach1ne_counterfeit:finishWork', function(src, id)
         for item, amount in pairs(def.output) do ox:AddItem(src, item, amount * w.batches) end
     end
 
-    o.data = { station = o.type, doneUntil = def.doneSeconds and (now() + def.doneSeconds) or nil }
+    o.data = { station = o.type, doneUntil = def.doneSeconds and (now() + def.doneSeconds) or nil,
+               lastSerial = serial, lastCount = serial and w.batches or nil }
     changed(o)
     log(src, ('%s #%d: %d portion(er)%s'):format(o.type, o.id, w.batches, serial and (' - serie ' .. serial) or ''))
     return true, w.batches, serial
@@ -456,7 +458,7 @@ end)
 -- ===================== UV-scanner =====================
 -- Alle kan se at bundterne er falske. Politiet får også registret: hvornår og hvor de blev talt op.
 
-st.callback.register('mach1ne_counterfeit:scan', function(src)
+local function scanInventory(src)
     local items = ox:Search(src, 'slots', Config.Items.bundle) or {}
     local police = isPolice(src)
     local bySerial, list = {}, {}
@@ -480,9 +482,66 @@ st.callback.register('mach1ne_counterfeit:scan', function(src)
         end
     end
     return list, police
+end
+
+-- Håndscanner (item)
+st.callback.register('mach1ne_counterfeit:scan', function(src)
+    return scanInventory(src)
+end)
+
+-- Scanner-bordet (prop): kun politiet. Resultatet vises også på bordets skærm for alle i nærheden.
+st.callback.register('mach1ne_counterfeit:scanDesk', function(src, id)
+    if not isPolice(src) then return false, locale('err_police_only') end
+    local o, err = getObj(src, id, 'prop')
+    if not o or not (Config.Props[o.type] and Config.Props[o.type].screen == 'uv') then return false, err end
+    local list = scanInventory(src)
+    local total, first = 0, list[1]
+    for _, e in ipairs(list) do total = total + e.count end
+    local screen = {
+        at = now(), serials = #list, total = total,
+        serial = first and first.serial or nil, created = first and first.createdText or nil,
+        pos = first and first.pos or nil,
+    }
+    o.data.scan = screen
+    TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
+    log(src, ('scannede %d bundt(er) ved UV-scanner #%d'):format(total, o.id))
+    return true, list
 end)
 
 -- ===================== Hæler =====================
+
+-- Hælerens kurs: falder når der sælges meget, stiger langsomt igen. Gemmes i KVP og deles via GlobalState.
+local Rate = { value = GetResourceKvpFloat('m1cf_rate') }
+if not Rate.value or Rate.value <= 0 then Rate.value = Config.Dealer.sell.rate end
+Rate.hourAgo = Rate.value
+
+local function publishRate()
+    local S = Config.Dealer.sell
+    local trend = Rate.value > Rate.hourAgo + 0.002 and 1 or (Rate.value < Rate.hourAgo - 0.002 and -1 or 0)
+    local demand = Rate.value >= S.rate + 0.03 and 'high' or (Rate.value <= S.rate - 0.05 and 'low' or 'normal')
+    GlobalState.m1cfRate = {
+        rate = Rate.value, price = math.floor(Config.Bundle.value * Rate.value), trend = trend, demand = demand,
+        max = S.max,
+    }
+    SetResourceKvpFloat('m1cf_rate', Rate.value)
+end
+
+CreateThread(function()
+    local S = Config.Dealer.sell
+    publishRate()
+    local ticks = 0
+    while true do
+        Wait(60000)
+        ticks = ticks + 1
+        -- op mod 'rate' (og lidt over, hvis der er roligt), med lidt tilfældig støj
+        local target = S.rate + 0.04
+        local step = S.recoverPerHour / 60
+        Rate.value = math.min(S.maxRate, math.max(S.minRate, Rate.value + (Rate.value < target and step or -step * 0.2)
+            + (math.random() - 0.5) * 0.002))
+        if ticks % 60 == 0 then Rate.hourAgo = Rate.value end
+        publishRate()
+    end
+end)
 
 local function dealerNear(src)
     local c = Config.Dealer.coords
@@ -523,8 +582,10 @@ st.callback.register('mach1ne_counterfeit:sell', function(src, amount)
     local xPlayer = ESX.GetPlayerFromId(src)
     if not xPlayer then return false end
     if not ox:RemoveItem(src, Config.Items.bundle, amount) then return false, locale('err_not_enough_bundles') end
-    local pay = math.floor(Config.Bundle.value * S.rate * amount)
+    local pay = math.floor(Config.Bundle.value * Rate.value * amount)
     xPlayer.addAccountMoney(S.account, pay)
+    Rate.value = math.max(S.minRate, Rate.value - S.dropPerBundle * amount)
+    publishRate()
     log(src, ('solgte %d bundt(er) til hæleren for %d'):format(amount, pay))
     return true, pay
 end)

@@ -67,3 +67,13 @@
 		description = 'Stil det op hvor du vil',
 		client = { image = 'm1f_cf_table.png', export = 'mach1ne_counterfeit.useProp' },
 	},
+	['cf_laptop'] = {
+		label = 'Laptop', weight = 2000, stack = true, close = true, consume = 0,
+		description = 'Viser status for maskinerne i dit værksted',
+		client = { image = 'm1f_cf_laptop.png', export = 'mach1ne_counterfeit.useProp' },
+	},
+	['cf_uvscanner'] = {
+		label = 'UV-scanner (bord)', weight = 4000, stack = true, close = true, consume = 0,
+		description = 'Politiets scanner til falske sedler. Stil den på et bord',
+		client = { image = 'm1f_cf_uvscanner.png', export = 'mach1ne_counterfeit.useProp' },
+	},

@@ -15,7 +15,9 @@ shared_scripts {
 }
 
 client_scripts {
+    'client/interact.lua',
     'client/main.lua',
+    'client/screens.lua',
     'client/place.lua',
     'client/dealer.lua',
 }
@@ -27,9 +29,10 @@ server_scripts {
 
 files {
     'locales/*.json',
+    'html/dui.html',
 }
 
--- Egne props med skelet + prop-/ped-animationer og fælles teksturer (stream/).
+-- Egne props med skelet + prop-/ped-animationer og fælles teksturer (stream/). Kilde i _blender/.
 data_file 'DLC_ITYP_REQUEST' 'stream/mach1ne_counterfeit.ytyp'
 
 dependencies {
@@ -39,3 +42,4 @@ dependencies {
     'oxmysql',
     'st_libs',
 }
+-- ox_target er valgfri (Config.Interaction)
