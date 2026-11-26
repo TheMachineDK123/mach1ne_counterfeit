@@ -165,6 +165,9 @@ Config.Noise = {
     callChancePerMinute = 4,        -- % pr. minut pr. presse der kører
     cooldownMinutes     = 10,       -- mindst så længe mellem to opkald fra samme presse
     message             = 'Naboer klager over højlydt maskinstøj fra en adresse i området',
+    -- Presser inde i et hus/instance (routing bucket ≠ 0) står på shell-koordinater, som ikke giver mening
+    -- på kortet. Som standard ringer naboerne derfor kun om presser ude i verden.
+    callFromInstances   = false,
 }
 
 -- ============================================================
@@ -172,6 +175,7 @@ Config.Noise = {
 -- ============================================================
 Config.Place = {
     maxDistance    = 5.0,
+    maxSnap        = 0.5,       -- så langt fra arbejdspladsen må spilleren stå og stadig blive flyttet på plads
     heightStep     = 0.02,
     maxLift        = 1.5,
     renderDistance = 80.0,

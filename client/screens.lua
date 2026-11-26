@@ -2,7 +2,8 @@
 -- GTA kan kun erstatte en tekstur for alle eksemplarer på én gang, så hver skærmtype følger den nærmeste
 -- model af sin slags. De andre viser standardbilledet fra m1_cf_tex.ytd.
 local SC = Config.Screens
-local screens = {}   -- [type] = { dui, txn, last }
+local screens = {}   -- [type] = { dui, txd, txn, last, sentAt }
+local serial = 0     -- runtime-txd'er kan ikke slettes, så hver ny DUI får sit eget navn
 local boardObj
 
 -- ===================== Status til laptop og fugtmåler =====================
@@ -130,7 +131,8 @@ end
 local function open(typ)
     local cfg = SC.types[typ]
     local w, h = cfg.size[1], cfg.size[2]
-    local s = { txd = 'm1cf_dui_' .. typ, txn = 'screen' }
+    serial = serial + 1
+    local s = { txd = ('m1cf_dui_%s_%d'):format(typ, serial), txn = 'screen' }
     s.dui = CreateDui(('nui://%s/html/dui.html?screen=%s'):format(GetCurrentResourceName(), typ), w, h)
     local txd = CreateRuntimeTxd(s.txd)
     CreateRuntimeTextureFromDuiHandle(txd, s.txn, GetDuiHandle(s.dui))
@@ -165,13 +167,20 @@ local function texts()
     return TEXTS
 end
 
+-- Sender data til skærmen. Siden er ikke klar i det øjeblik DUI'en oprettes, så vi venter på
+-- IsDuiAvailable og sender den seneste besked igen hvert 2. sekund. Ellers ville en skærm med uændrede
+-- data (en tom tørresnor, en tæller der står stille) blive ved med at vise sidens tomme starttilstand.
+local RESEND_MS = 2000
+
 local function push(typ, data)
     local s = screens[typ] or open(typ)
+    if not IsDuiAvailable(s.dui) then return end
     data.screen = typ
     data.txt = texts()[typ]
     local msg = json.encode(data)
-    if msg ~= s.last then
-        s.last = msg
+    local t = GetGameTimer()
+    if msg ~= s.last or t - (s.sentAt or 0) >= RESEND_MS then
+        s.last, s.sentAt = msg, t
         SendDuiMessage(s.dui, msg)
     end
 end

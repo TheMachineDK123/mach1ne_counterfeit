@@ -123,5 +123,9 @@
     "dui_currency": "kr.",
     "dui_demand_high": "Høj efterspørgsel",
     "dui_demand_normal": "Normal efterspørgsel",
-    "dui_demand_low": "Lav efterspørgsel"
+    "dui_demand_low": "Lav efterspørgsel",
+    "err_no_space": "Der er ikke plads foran maskinen - flyt den eller ryd vejen",
+    "drop_label": "Falskmøntner",
+    "items_dropped": "Du kunne ikke bære det hele - resten ligger på jorden",
+    "refund_paid": "Du har fået materialerne tilbage fra sidst, du loggede ud midt i arbejdet"
 }

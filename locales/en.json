@@ -123,5 +123,9 @@
     "dui_currency": "$",
     "dui_demand_high": "High demand",
     "dui_demand_normal": "Normal demand",
-    "dui_demand_low": "Low demand"
+    "dui_demand_low": "Low demand",
+    "err_no_space": "There's no room in front of the machine - move it or clear the way",
+    "drop_label": "Counterfeit",
+    "items_dropped": "You couldn't carry everything - the rest is on the ground",
+    "refund_paid": "You got your materials back from when you logged out mid-work"
 }

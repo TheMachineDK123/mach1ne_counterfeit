@@ -53,6 +53,18 @@ CreateThread(function()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ]])
 
+    -- Materialer til spillere, der loggede ud midt i arbejdet (udbetales næste gang de logger ind)
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS `m1_counterfeit_refunds` (
+            `id`         INT NOT NULL AUTO_INCREMENT,
+            `identifier` VARCHAR(60) NOT NULL,
+            `items`      LONGTEXT NOT NULL,
+            `created_at` BIGINT NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            KEY `idx_identifier` (`identifier`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ]])
+
     for _, row in ipairs(MySQL.query.await('SELECT * FROM m1_counterfeit_objects') or {}) do
         local data = row.data and json.decode(row.data) or {}
         data.activeUntil, data.user = nil, nil   -- igangværende arbejde overlever ikke en genstart
@@ -125,6 +137,30 @@ local function deleteObj(id)
     Work[id] = nil
     MySQL.query('DELETE FROM m1_counterfeit_objects WHERE id = ?', { id })
     TriggerClientEvent('mach1ne_counterfeit:remove', -1, id)
+end
+
+local function near(src, o, dist)
+    return GetPlayerRoutingBucket(src) == o.bucket
+        and #(playerPos(src) - vec3(o.pos.x, o.pos.y, o.pos.z)) <= (dist or 4.0)
+end
+
+-- Giv items til spilleren. Kan de ikke være i inventaret, lægges resten på jorden ved spilleren,
+-- så intet forsvinder. items = { { name, count, metadata? }, ... }
+local function giveOrDrop(src, items)
+    local drop = {}
+    for _, it in ipairs(items) do
+        local name, count, meta = it[1], it[2], it[3]
+        if count and count > 0 then
+            local ok = ox:CanCarryItem(src, name, count, meta) and ox:AddItem(src, name, count, meta)
+            if not ok then drop[#drop + 1] = { name, count, meta } end
+        end
+    end
+    if #drop > 0 then
+        local c = playerPos(src)
+        ox:CustomDrop(locale('drop_label'), drop, vec3(c.x, c.y, c.z - 0.95), nil, nil, GetPlayerRoutingBucket(src))
+        TriggerClientEvent('mach1ne_counterfeit:notify', src, locale('items_dropped'), 'warning')
+    end
+    return #drop == 0
 end
 
 local function canCarryAll(src, list)
@@ -282,13 +318,12 @@ st.callback.register('mach1ne_counterfeit:collect', function(src, id)
     o.data = { station = o.type, batches = 0 }
     changed(o)
 
-    local got = 0
+    local got, give = 0, {}
     for item, count in pairs(out) do
-        if count > 0 then
-            ox:AddItem(src, item, count)
-            got = got + count
-        end
+        give[#give + 1] = { item, count }
+        got = got + count
     end
+    giveOrDrop(src, give)
     log(src, ('tømte %s #%d (%s) - %d stk.'):format(o.type, o.id, state, got))
     return true, got, state == 'spoiled'
 end)
@@ -305,6 +340,7 @@ CreateThread(function()
         for id, o in pairs(Objects) do
             local def = o.kind == 'station' and Config.Stations[o.type]
             if def and def.noise and Util.stationState(o.data, t) == 'working'
+                and (o.bucket == 0 or N.callFromInstances)
                 and t - (lastCall[id] or 0) >= N.cooldownMinutes * 60
                 and math.random(100) <= N.callChancePerMinute then
                 lastCall[id] = t
@@ -333,7 +369,7 @@ st.callback.register('mach1ne_counterfeit:startWork', function(src, id)
     if not o then return false, err end
     local def = Config.Stations[o.type]
     if not def or def.mode ~= 'active' then return false, locale('err_unknown_machine') end
-    if Util.stationState(o.data, now()) == 'active' then return false, locale('err_in_use') end
+    if Work[o.id] or Util.stationState(o.data, now()) == 'active' then return false, locale('err_in_use') end
 
     local batches = possibleBatches(src, def)
     if batches < 1 then return false, locale('err_materials') end
@@ -360,18 +396,41 @@ RegisterNetEvent('mach1ne_counterfeit:animStart', function(id)
     TriggerClientEvent('mach1ne_counterfeit:animSync', -1, tonumber(id), 0)
 end)
 
+local function inputItems(def, batches)
+    local list = {}
+    for item, amount in pairs(def.input) do list[#list + 1] = { item, amount * batches } end
+    return list
+end
+
 local function refund(src, def, batches)
-    for item, amount in pairs(def.input) do ox:AddItem(src, item, amount * batches) end
+    giveOrDrop(src, inputItems(def, batches))
+end
+
+-- Spilleren er ikke online: gem materialerne og giv dem ved næste login.
+local function queueRefund(identifier, def, batches)
+    if not identifier then return end
+    MySQL.insert('INSERT INTO m1_counterfeit_refunds (identifier, items, created_at) VALUES (?, ?, ?)',
+        { identifier, json.encode(inputItems(def, batches)), now() })
+end
+
+-- Afbryd en igangværende opgave og lås maskinen op igen.
+local function endWork(o, w, how)
+    Work[o.id] = nil
+    local def = Config.Stations[o.type]
+    if how == 'refund' then
+        refund(w.src, def, w.batches)
+    elseif how == 'queue' then
+        queueRefund(w.identifier, def, w.batches)
+    end
+    o.data = { station = o.type }
+    TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
 end
 
 st.callback.register('mach1ne_counterfeit:cancelWork', function(src, id)
     local o = Objects[tonumber(id)]
     local w = o and Work[o.id]
     if not w or w.src ~= src then return false end
-    Work[o.id] = nil
-    refund(src, Config.Stations[o.type], w.batches)
-    o.data = { station = o.type }
-    TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
+    endWork(o, w, 'refund')
     return true
 end)
 
@@ -380,6 +439,10 @@ st.callback.register('mach1ne_counterfeit:finishWork', function(src, id)
     local w = o and Work[o.id]
     if not w or w.src ~= src then return false, locale('err_interrupted') end
     if now() < w.finishAt then return false, locale('err_too_fast') end
+    if not near(src, o) then
+        endWork(o, w, 'refund')
+        return false, locale('err_too_far')
+    end
     local def = Config.Stations[o.type]
     Work[o.id] = nil
 
@@ -387,14 +450,16 @@ st.callback.register('mach1ne_counterfeit:finishWork', function(src, id)
     if o.type == 'cf_counter' then
         serial = newSerial()
         local B = Config.Bundle
-        ox:AddItem(src, Config.Items.bundle, w.batches, {
+        giveOrDrop(src, { { Config.Items.bundle, w.batches, {
             serial = serial, value = B.value,
             description = locale('bundle_description', serial, B.bills),
-        })
+        } } })
         MySQL.insert('INSERT INTO m1_counterfeit_serials (serial, counter_id, owner, amount, x, y, z, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             { serial, o.id, w.identifier, w.batches, o.pos.x, o.pos.y, o.pos.z, now() })
     else
-        for item, amount in pairs(def.output) do ox:AddItem(src, item, amount * w.batches) end
+        local give = {}
+        for item, amount in pairs(def.output) do give[#give + 1] = { item, amount * w.batches } end
+        giveOrDrop(src, give)
     end
 
     o.data = { station = o.type, doneUntil = def.doneSeconds and (now() + def.doneSeconds) or nil,
@@ -414,15 +479,37 @@ CreateThread(function()
             if not o then
                 Work[id] = nil
             elseif t > w.finishAt + 30 then
-                Work[id] = nil
-                if GetPlayerName(w.src) and getIdentifier(w.src) == w.identifier then
-                    refund(w.src, Config.Stations[o.type], w.batches)
-                end
-                o.data = { station = o.type }
-                TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
+                local online = GetPlayerName(w.src) and getIdentifier(w.src) == w.identifier
+                endWork(o, w, online and 'refund' or 'queue')
             end
         end
     end
+end)
+
+-- Logger spilleren ud midt i arbejdet, gemmes materialerne til næste login.
+AddEventHandler('playerDropped', function()
+    local src = source
+    for id, w in pairs(Work) do
+        local o = Objects[id]
+        if w.src == src and o then endWork(o, w, 'queue') end
+    end
+end)
+
+local function payRefunds(src, identifier)
+    local rows = MySQL.query.await('SELECT id, items FROM m1_counterfeit_refunds WHERE identifier = ?', { identifier }) or {}
+    if #rows == 0 then return end
+    MySQL.query.await('DELETE FROM m1_counterfeit_refunds WHERE identifier = ?', { identifier })
+    for _, row in ipairs(rows) do giveOrDrop(src, json.decode(row.items) or {}) end
+    TriggerClientEvent('mach1ne_counterfeit:notify', src, locale('refund_paid'), 'inform')
+    log(src, ('fik %d gemt(e) refundering(er)'):format(#rows))
+end
+
+AddEventHandler('esx:playerLoaded', function(src, xPlayer)
+    local identifier = xPlayer and xPlayer.identifier or getIdentifier(src)
+    if not identifier then return end
+    SetTimeout(8000, function()     -- giv ox_inventory tid til at indlæse inventaret
+        if GetPlayerName(src) then payRefunds(src, identifier) end
+    end)
 end)
 
 -- ===================== Pak sammen / beslaglæg =====================

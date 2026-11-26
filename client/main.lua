@@ -299,6 +299,10 @@ RegisterNetEvent('mach1ne_counterfeit:update', function(id, data, elapsed)
     if ents[id] then sync(o, CF.now()) end
 end)
 
+RegisterNetEvent('mach1ne_counterfeit:notify', function(message, nType)
+    CF.notify(message, nType)
+end)
+
 RegisterNetEvent('mach1ne_counterfeit:bucket', function(bucket)
     CF.bucket = bucket or 0
 end)
@@ -347,16 +351,24 @@ local function goTo(o, w)
     if not w then
         TaskTurnPedToFaceCoord(ped, o.pos.x, o.pos.y, o.pos.z, 800)
         Wait(800)
-        return
+        return true
     end
     local p, heading = spotOf(o, w)
     TaskGoStraightToCoord(ped, p.x, p.y, GetEntityCoords(ped).z, 1.0, 4000, heading, 0.05)
     local timeout = GetGameTimer() + 4000
     while #(GetEntityCoords(ped).xy - p.xy) > 0.2 and GetGameTimer() < timeout do Wait(50) end
     ClearPedTasks(ped)
-    SetEntityCoordsNoOffset(ped, p.x, p.y, GetEntityCoords(ped).z, false, false, false)
+    local here = GetEntityCoords(ped)
+    -- Kom spilleren ikke helt hen (væg, møbler i vejen), bliver spilleren IKKE flyttet det sidste stykke.
+    -- Ellers kunne man stille en maskine op ad en væg og blive sat ind på den anden side.
+    if #(here.xy - p.xy) > P.maxSnap or math.abs(here.z - p.z - 1.0) > 1.2 then
+        CF.notify(locale('err_no_space'), 'error')
+        return false
+    end
+    SetEntityCoordsNoOffset(ped, p.x, p.y, here.z, false, false, false)
     SetEntityHeading(ped, heading)
     Wait(50)
+    return true
 end
 
 -- Ped-animation fra m1_cf_ped.ycd, placeret med maskinen som reference (hænderne rammer håndtag, papir osv.).
@@ -380,7 +392,10 @@ local function action(label, duration, anim, event, id, spot)
     if CF.busy then return end
     CF.busy = true
     local o = Objects[id]
-    if o then goTo(o, spot) end
+    if o and not goTo(o, spot) then
+        CF.busy = false
+        return
+    end
     if o and playSpot(o, spot) then anim = nil end
     local done = progress(label, duration, anim)
     local ok, a, b
@@ -464,7 +479,10 @@ function CF.work(id)
     local def = o and Config.Stations[o.type]
     if not def then return end
     CF.busy = true
-    goTo(o, def.work)
+    if not goTo(o, def.work) then
+        CF.busy = false
+        return
+    end
 
     local ok, batches, duration = st.callback.await('mach1ne_counterfeit:startWork', 500, id)
     if not ok then

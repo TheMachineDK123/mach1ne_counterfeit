@@ -107,7 +107,7 @@ Står der flere af samme slags, er det den, du står tættest på, der er tændt
 
 ## Politiet
 
-- **Naboerne ringer:** mens pressen kører, kan politiet få et område vist på kortet.
+- **Naboerne ringer:** mens pressen kører, kan politiet få et område vist på kortet. Det sker kun, når pressen står ude i verden, ikke inde i et hus (kan slås til med `Config.Noise.callFromInstances`).
 - **UV-scanner i lommen:** alle kan se, at sedlerne er falske. Politiet kan også se, hvornår bundtet blev lavet, og cirka hvor. De kan sætte et punkt på kortet.
 - **UV-scanner på bordet:** politiet kan stille en scanner op på stationen. Resultatet kommer også op på scannerens skærm, så kollegaerne kan se med.
 - **Beslaglæg:** tryk `H` ved en maskine for at tage den.
