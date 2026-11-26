@@ -29,7 +29,7 @@ files {
     'locales/*.json',
 }
 
--- Egne props med skelet + prop-/ped-animationer og fælles teksturer (stream/). Kilde i _blender/.
+-- Egne props med skelet + prop-/ped-animationer og fælles teksturer (stream/).
 data_file 'DLC_ITYP_REQUEST' 'stream/mach1ne_counterfeit.ytyp'
 
 dependencies {

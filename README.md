@@ -87,36 +87,13 @@ Spilleren har egne animationer i `stream/m1_cf_ped.ycd`. De er lavet på freemod
 
 Spilleren går hen til `work.offset` / `take.offset` og bliver stillet præcist der med `TaskPlayAnimAdvanced`. På de aktive maskiner genstartes maskinens animation samtidig, så kniven går ned, præcis når spilleren trækker i håndtaget.
 
-Animationerne er lavet til de offsets, der står i `config.lua`. Sedeltælleren er lavet til at stå på et bord i 0,9 m højde (`cf_table`). Ændrer du offsets eller bordhøjde, skal animationerne bages igen (se nedenfor).
+Animationerne er lavet til de offsets, der står i `config.lua`. Sedeltælleren er lavet til at stå på et bord i 0,9 m højde (`cf_table`). Ændrer du offsets eller bordhøjde, passer hænderne ikke længere til maskinerne.
 
 Prop-animationerne spiller for alle i nærheden, fordi maskinens tilstand synkroniseres fra serveren. Når spilleren starter sin animation, sender klienten `animStart` til serveren. Serveren sender tidspunktet videre, og alle klienter sætter maskinens animation i samme fase med `SetEntityAnimCurrentTime`. De andre spillere ser altså kniven gå ned samtidig med armene. Spillere, der kommer til senere, får den forløbne tid med fra serveren.
 
 Findes en custom model ikke, bruges en vanilla-fallback (`bkr_prop_*`) uden prop-animation.
 
-## Ændre modeller og animationer
+## Ydelse
 
-Kilden ligger i `_blender/`. Mappen bliver ikke sendt til klienterne.
-
-- `mach1ne_counterfeit.blend`: Alle rigs, actions og clip-dictionaryen. Freemode-pedens krop (Rockstar-meshes) er fjernet fra filen, men skelettet er der. Kør `scripts/extract_ped.ps1` og importér `_blender/ped/*.ydd.xml`, hvis du vil se kroppen i preview.
-- `scripts/make_textures.py`: Teksturerne (`python make_textures.py ../tex`). Sedlerne er et fiktivt "Los Santos Reserve"-design.
-- `scripts/cfbuild.py`: Bygger modeller, skeletter, animationer og eksport (Blender 5 + Sollumz):
-  ```python
-  exec(open(r'...\cfbuild.py').read())
-  clear_scene(); rigs = build_all(); build_anims(rigs)
-  export_all(r'...\stream', r'...\_blender\ycd')
-  ```
-  Animationerne er "bagt" fra Python-funktioner (`anim_press`, `anim_cutter` osv.), så de kan justeres direkte i koden.
-- `scripts/icons.py`: Inventar-ikoner (`render_icons(<ox_inventory/web/images>)`).
-- `scripts/pedanim.py`: Ped-animationerne (`build_ped_anims()`, `export_ped_ycd(<_blender/ycd>)`). Hver animation er en Python-funktion (`pose_cut`, `pose_count` osv.). Hænderne bliver placeret med en analytisk 2-knogle-IK på de samme maskinpunkter, som prop-animationen bruger. Ben-IK holder fødderne plantet. Resultatet bages til keyframes.
-- `scripts/extract_ped.ps1` / `extract_anims.ps1`: Henter freemode-skelettet og vanilla-referenceclips fra din GTA V-installation via CodeWalker.Core. De lægges i `_blender/ped/`, som er git-ignoreret, fordi det er Rockstar-filer.
-- `scripts/ycd_to_binary.ps1`: Sollumz kan kun eksportere `.ycd` som XML. Scriptet konverterer `m1_cf_anims` og `m1_cf_ped` til binær med `CodeWalker.Core.dll` (sti med `-CodeWalker`).
-- `scripts/build_ytd.ps1`: Bygger den fælles texture dictionary `stream/m1_cf_tex.ytd` ud fra listen, som `export_all()` skriver til `_blender/ycd/m1_cf_tex.json`.
-
-### Teksturer og LOD
-
-- **Fælles teksturer**: Teksturerne er ikke embedded i hver `.ydr`. De ligger samlet i `m1_cf_tex.ytd` (46 teksturer, ca. 1,5 MB), og alle archetyper peger på den via `textureDictionary`. Før lå de samme teksturer i op til 12 modeller (`stream/` fyldte 6,6 MB, nu ca. 2,7 MB).
-- **LOD**: Hver model har en forenklet medium-LOD, decimeret til ca. 40 % af trekanterne. Høj LOD vises op til 15 m, medium op til 70 m, og derefter forsvinder modellen (`lodDist` 70). Sedeltælleren bruger 14/35 m. Afstandene står øverst i `cfbuild.py` (`LOD_HIGH`, `LOD_MED`, `LOD_SMALL`).
-
-Rækkefølge efter ændringer: `export_all()` i Blender, derefter `build_ytd.ps1` og `ycd_to_binary.ps1`.
-
-Eksportér som **Native / GEN8**.
+- **Fælles teksturer**: Alle modeller bruger samme texture dictionary, `stream/m1_cf_tex.ytd`, i stedet for at have teksturerne embedded hver for sig.
+- **LOD**: Hver model har en forenklet medium-LOD med ca. 40 % af trekanterne. Høj LOD vises op til 15 m, medium op til 70 m, og derefter forsvinder modellen. Sedeltælleren bruger 14/35 m.
