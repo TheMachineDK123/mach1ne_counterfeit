@@ -1,99 +1,170 @@
+<div align="center">
+
 # mach1ne_counterfeit
 
-Falskmøntneri til FiveM (ESX + st_libs + ox_inventory + oxmysql). Man trykker ark med falske 1000-sedler, hænger dem til tørre, skærer dem ud og tæller dem op i bundter. Bundterne kan sælges til en hæler. Alle maskiner er egne Blender-modeller med skelet og **prop-animationer**: valserne drejer, kniven skærer, arkene svajer og sedlerne bladres.
+**Falskmøntneri til FiveM.** Tryk, tør, skær og bundt dine egne falske sedler i et værksted, du bygger hvor du vil.
 
-![Animationer](anim_preview.gif)
+![FiveM](https://img.shields.io/badge/FiveM-cerulean-F40552?style=flat-square)
+![ESX](https://img.shields.io/badge/framework-ESX-2C3E50?style=flat-square)
+![ox_inventory](https://img.shields.io/badge/inventory-ox__inventory-1F6FEB?style=flat-square)
+![st_libs](https://img.shields.io/badge/UI-st__libs-8957E5?style=flat-square)
+![Sprog](https://img.shields.io/badge/sprog-da%20%7C%20en-2EA043?style=flat-square)
 
-![Ped-animationer](ped_anim_preview.gif)
+<img src="anim_preview.gif" width="49%" alt="Maskinernes animationer"> <img src="ped_anim_preview.gif" width="49%" alt="Spillerens animationer">
 
-## Flow
+</div>
 
-```
-Bomuldspapir (2) + Blæk (1) ──Trykpresse 6 min──► Våde trykark (2)      [larmer]
-Våde trykark (2)            ──Tørresnor 8 min───► Trykark (2)
-Trykark (1)                 ──Skæremaskine 5 s──► Løse sedler (8)       [aktiv]
-Løse sedler (25) + Banderole ─Sedeltæller 4 s───► Bundt (serie LS xxxxxX) [aktiv]
-Bundt ──Hæler──► 45 % af pålydende i sorte penge
-```
+---
 
-- **Tidsstyrede maskiner** (presse, tørresnor): Fyld dem, gå fra dem og hent outputtet, når tiden er gået. Våde ark, der ligger for længe i pressen, klistrer sammen (`spoil`).
-- **Aktive maskiner** (skæremaskine, sedeltæller): Man står ved maskinen, mens den arbejder, og outputtet kommer direkte i inventaret. Afbryder man, får man materialerne tilbage.
-- **Støj**: Mens en presse kører, er der `Config.Noise.callChancePerMinute` % chance pr. minut for, at naboerne ringer. Politiet får så et område på kortet.
-- **Serienumre**: Hver optælling får en serie, f.eks. `LS 04821K`. Serien står i bundtets metadata og bliver gemt i `m1_counterfeit_serials` sammen med sedeltællerens position.
-- **UV-scanner** (`cf_scanner`): Alle kan se, at deres bundter er falske. Politiet ser også, hvornår og i hvilket område hver serie blev talt op, og kan sætte et omtrentligt waypoint.
+## Indhold
 
-## Byg dit værksted
+- [Features](#features)
+- [Produktionen](#produktionen)
+- [Installation](#installation)
+- [Sådan spiller det](#sådan-spiller-det)
+- [Politiet](#politiet)
+- [Konfiguration](#konfiguration)
+- [Animationer](#animationer)
+- [Ydelse](#ydelse)
 
-Alt placeres fra inventaret som i `mach1ne_cocaine`: ude, inde, i housing-buckets og oven på andre objekter, f.eks. en sedeltæller på et arbejdsbord.
+## Features
+
+- **Fire maskiner med egne modeller**: trykpresse, tørresnor, skæremaskine og sedeltæller, plus et arbejdsbord. De skifter model efter, hvor langt de er.
+- **Maskiner der bevæger sig**: valserne drejer, arkene svajer på snoren, kniven skærer, og sedlerne bladres gennem tælleren.
+- **Animationer til spilleren** lavet til hver maskine. Hænderne griber om håndtaget, papiret og bunkerne, og alle omkring dig ser det i takt.
+- **Byg dit værksted hvor som helst**: ude, inde, i housing og oven på andre ting, f.eks. en sedeltæller på et bord.
+- **Serienumre** på hvert bundt, gemt i databasen, så politiet kan spore hvor og hvornår sedlerne blev lavet.
+- **Støj**: pressen larmer, og naboerne ringer til politiet.
+- **Hæler-NPC**, der sælger udstyr og køber bundterne for sorte penge.
+- **Dansk og engelsk** via st_libs locale.
+
+## Produktionen
+
+| # | Maskine | Input | Output | Tid |
+| :-: | --- | --- | --- | --- |
+| 1 | **Trykpresse** | 2× Bomuldspapir + 1× Sikkerhedsblæk | 2× Våde trykark | 6 min |
+| 2 | **Tørresnor** | 2× Våde trykark | 2× Trykark | 8 min |
+| 3 | **Skæremaskine** | 1× Trykark | 8× Løse sedler | 5 s |
+| 4 | **Sedeltæller** | 25× Løse sedler + 1× Banderole | 1× Bundt (med serienummer) | 4 s |
+| 5 | **Hæleren** | Bundt | 45 % af pålydende i sorte penge | |
+
+Mængder og tider gælder pr. portion, og en maskine tager så mange portioner, som du har materialer til. Alt kan ændres i `config.lua`.
+
+> **Pressen og tørresnoren** er tidsstyrede: fyld dem, gå fra dem og kom tilbage. Glemmer du de våde ark i pressen, klistrer halvdelen sammen.
+>
+> **Skæremaskinen og sedeltælleren** er aktive: du står ved dem, mens de arbejder, og får outputtet direkte. Afbryder du, får du materialerne tilbage.
+
+## Installation
+
+**Krav:** [es_extended](https://github.com/esx-framework/esx_core) · [ox_lib](https://github.com/overextended/ox_lib) · [ox_inventory](https://github.com/overextended/ox_inventory) · [oxmysql](https://github.com/overextended/oxmysql) · st_libs
+
+1. Læg mappen `mach1ne_counterfeit` i din `resources`-mappe.
+2. Tilføj items i ox_inventory:
+   - Indsæt blokken fra [`install/ox_inventory/items.lua`](install/ox_inventory/items.lua) i `ox_inventory/data/items.lua` (inden den sidste `}`).
+   - Kopiér billederne fra [`install/ox_inventory/images/`](install/ox_inventory/images) til `ox_inventory/web/images/`.
+3. Tilføj til `server.cfg` efter afhængighederne:
+
+   ```cfg
+   ensure mach1ne_counterfeit
+   ```
+
+4. Start serveren. Databasetabellerne oprettes automatisk ([`sql/install.sql`](sql/install.sql) findes også).
+
+> [!NOTE]
+> Hæleren står som standard på Elysian Island. Ret `Config.Dealer.coords`, hvis han skal stå et andet sted.
+> UV-scanneren (`cf_scanner`) sælges ikke af hæleren, så læg den i politiets armory eller shop.
+
+## Sådan spiller det
+
+Køb udstyr og materialer hos hæleren, og brug maskinerne fra inventaret for at stille dem op.
+
+**Placering**
 
 | Tast | Handling |
 | --- | --- |
 | `E` | Placér |
-| `← →` | Rotér (`Shift` = fint) |
-| `Scroll` | Hæv/sænk |
+| `←` `→` | Rotér (hold `Shift` for fin rotation) |
+| `Scroll` | Hæv / sænk |
 | `Backspace` / højreklik | Annullér |
+
+**Ved maskinerne**
 
 | Objekt | `E` | `G` (ejer) | `H` (politi) |
 | --- | --- | --- | --- |
-| Trykpresse / tørresnor | Fyld / se tid / tøm | Pak sammen (tom) | Beslaglæg |
+| Trykpresse / tørresnor | Fyld · se tid · tøm | Pak sammen (når den er tom) | Beslaglæg |
 | Skæremaskine / sedeltæller | Arbejd ved maskinen | Pak sammen | Beslaglæg |
-| Arbejdsbord | - | Pak sammen | Beslaglæg |
+| Arbejdsbord | | Pak sammen | Beslaglæg |
 
-## Sprog
+Maskinerne er kun synlige i den routing bucket, de er stillet op i. Et værksted i en housing-instance er altså kun synligt for dem, der er inde i den.
 
-Alle tekster ligger i `locales/da.json` og `locales/en.json` (st_libs `locale()`). Sproget vælges med `Config.Locale`. Navne på maskiner og items samt tekster som `fillText` står stadig i `config.lua`.
+## Politiet
 
-## Krav
+- **Naboer ringer**: mens en presse kører, er der en lille chance hvert minut for, at politiet får et område markeret på kortet.
+- **UV-scanner**: alle kan se, at deres bundter er falske. Betjente ser også, hvornår hver serie blev talt op, i hvilket område, og om sedeltælleren stadig står der. De kan sætte et omtrentligt waypoint.
+- **Beslaglæggelse**: `H` ved en maskine fjerner den.
 
-`es_extended`, `ox_lib`, `ox_inventory`, `oxmysql`, `st_libs`
+## Konfiguration
 
-## Installation
+Alt står i [`config.lua`](config.lua):
 
-1. Læg mappen `mach1ne_counterfeit` i din `resources`-mappe.
-2. Tabellerne oprettes automatisk (`sql/install.sql` findes også).
-3. **ox_inventory**:
-   - Indsæt blokken fra `install/ox_inventory/items.lua` i `ox_inventory/data/items.lua` (inden den sidste `}`).
-   - Kopiér `install/ox_inventory/images/*.png` til `ox_inventory/web/images/`.
-4. Tilføj til `server.cfg` efter afhængighederne:
+| Indstilling | Hvad den styrer |
+| --- | --- |
+| `Config.Locale` | Sprog (`da` / `en`). Teksterne ligger i [`locales/`](locales) |
+| `Config.Stations` | Input, output, tider, modeller og arbejdspositioner for hver maskine |
+| `Config.Bundle` | Antal sedler pr. bundt og pålydende |
+| `Config.Noise` | Chancen for at naboerne ringer, og cooldown |
+| `Config.Police` | Politijobs og blip |
+| `Config.Dealer` | Hælerens position, varer, priser og hvor meget han betaler |
+| `Config.StationLimits` / `Config.Props` | Maks antal maskiner pr. spiller |
 
-```cfg
-ensure mach1ne_counterfeit
-```
+## Animationer
 
-Hæleren (`Config.Dealer`) står som standard på Elysian Island. Han sælger papir, blæk, banderoler og alle maskiner og køber bundter. Ret `coords`, hvis han står et dårligt sted. `cf_scanner` sælges ikke, så giv den til politiet via dit eget job-shop eller armory.
+<details>
+<summary><b>Maskinerne</b> (<code>stream/m1_cf_anims.ycd</code>)</summary>
 
-## Prop-animationer
+<br>
 
-Maskinerne er drawables med skelet, og hver bevægelig del hænger på sin egen knogle. Animationerne ligger i `stream/m1_cf_anims.ycd` og afspilles med `PlayEntityAnim` på klienten. Archetyperne i `mach1ne_counterfeit.ytyp` peger på clip-dictionaryen og har flaget *Has Anim (YCD)*.
+| Clip | Længde | Hvad sker der |
+| --- | --- | --- |
+| `press_run` | 2 s loop | Valser, svinghjul og tandhjul drejer. Et ark kører ind bagfra og lander i bakken |
+| `dryline_sway` | 4 s loop | 10 ark svajer i vinden, hver i sin egen takt |
+| `cutter_cut` | 2,5 s loop | Pressebjælken spænder, armen trækkes ned, kniven skærer, og en strimmel sedler glider frem |
+| `counter_count` | 1 s loop | Valsen drejer, og sedlerne vipper ned i maskinen og glider ud i lommen |
 
-| Clip | Model | Længde | Hvad sker der |
-| --- | --- | --- | --- |
-| `press_run` | `m1_cf_press_on` | 2 s loop | Valser, blækvalser, svinghjul og tandhjul drejer. Et ark kører ind bagfra, under valserne og ned i bakken |
-| `dryline_sway` | `m1_cf_dryline_wet/dry` | 4 s loop | 10 ark svajer i vinden med hver sin fase |
-| `cutter_cut` | `m1_cf_cutter_loaded` | 2,5 s loop | Pressebjælken spænder, armen trækkes ned, kniven skærer, og en strimmel sedler glider frem |
-| `counter_count` | `m1_cf_counter_run` | 1 s loop | Valsen drejer, og fire sedler ad gangen vipper ned i maskinen og glider ud i lommen |
+</details>
 
-## Ped-animationer
+<details>
+<summary><b>Spilleren</b> (<code>stream/m1_cf_ped.ycd</code>)</summary>
 
-Spilleren har egne animationer i `stream/m1_cf_ped.ycd`. De er lavet på freemode-skelettet og passer præcist til maskinerne:
+<br>
 
-| Clip | Maskine | Længde | Hvad spilleren gør |
-| --- | --- | --- | --- |
-| `cut` | Skæremaskine | 2,5 s loop | Begge hænder på håndtaget, trækker det ned i takt med kniven, bøjer i knæene og læner sig ind |
-| `count` | Sedeltæller (på bord) | 2 s loop | Venstre hånd holder bunken i tragten, højre retter sedlerne til i lommen, blikket følger displayet |
-| `press_feed` | Trykpresse (bagpå) | 2 s loop | Retter papirstakken til på indføringsbordet og skubber den frem |
-| `press_take` | Trykpresse (foran) | 4 s | Bukker sig ned, griber bunken i bakken og løfter den op |
-| `hang` | Tørresnor | 3 s loop | Rækker op, sætter arket i klemmerne og glatter det ud |
+| Clip | Maskine | Hvad spilleren gør |
+| --- | --- | --- |
+| `cut` | Skæremaskine | Begge hænder på håndtaget og trækker ned i takt med kniven |
+| `count` | Sedeltæller | Holder bunken i tragten og retter sedlerne til i lommen |
+| `press_feed` | Trykpresse, bagpå | Retter papirstakken til og skubber den ind |
+| `press_take` | Trykpresse, foran | Bukker sig ned og løfter bunken op fra bakken |
+| `hang` | Tørresnor | Rækker op og sætter arket i klemmerne |
 
-Spilleren går hen til `work.offset` / `take.offset` og bliver stillet præcist der med `TaskPlayAnimAdvanced`. På de aktive maskiner genstartes maskinens animation samtidig, så kniven går ned, præcis når spilleren trækker i håndtaget.
+</details>
 
-Animationerne er lavet til de offsets, der står i `config.lua`. Sedeltælleren er lavet til at stå på et bord i 0,9 m højde (`cf_table`). Ændrer du offsets eller bordhøjde, passer hænderne ikke længere til maskinerne.
+Spilleren bliver stillet præcist foran maskinen, og maskinens animation starter samtidig. Serveren sender starttidspunktet videre, så andre spillere også ser kniven gå ned i takt med armene.
 
-Prop-animationerne spiller for alle i nærheden, fordi maskinens tilstand synkroniseres fra serveren. Når spilleren starter sin animation, sender klienten `animStart` til serveren. Serveren sender tidspunktet videre, og alle klienter sætter maskinens animation i samme fase med `SetEntityAnimCurrentTime`. De andre spillere ser altså kniven gå ned samtidig med armene. Spillere, der kommer til senere, får den forløbne tid med fra serveren.
+> [!IMPORTANT]
+> Spillerens animationer er lavet til arbejdspositionerne i `config.lua`, og sedeltælleren til et bord i 0,9 m højde (arbejdsbordet). Flytter du positionerne, passer hænderne ikke længere.
 
-Findes en custom model ikke, bruges en vanilla-fallback (`bkr_prop_*`) uden prop-animation.
+Findes en model ikke, bruges en vanilla-prop i stedet, men så uden animation.
 
 ## Ydelse
 
-- **Fælles teksturer**: Alle modeller bruger samme texture dictionary, `stream/m1_cf_tex.ytd`, i stedet for at have teksturerne embedded hver for sig.
-- **LOD**: Hver model har en forenklet medium-LOD med ca. 40 % af trekanterne. Høj LOD vises op til 15 m, medium op til 70 m, og derefter forsvinder modellen. Sedeltælleren bruger 14/35 m.
+- Alle modeller deler én texture dictionary (`m1_cf_tex.ytd`), så teksturerne kun hentes én gang.
+- Hver model har en forenklet LOD. Fuld detalje vises op til 15 m, den forenklede op til 70 m, og sedeltælleren forsvinder allerede ved 35 m.
+- 3D-teksten ved maskinerne bygges kun om, når maskinens tilstand ændrer sig.
+
+---
+
+<div align="center">
+
+Lavet af **TheMach1neDK**
+
+</div>
