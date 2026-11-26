@@ -27,3 +27,13 @@ CREATE TABLE IF NOT EXISTS `m1_counterfeit_serials` (
     `created_at` BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (`serial`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Materialer til spillere, der loggede ud midt i arbejdet (udbetales ved næste login)
+CREATE TABLE IF NOT EXISTS `m1_counterfeit_refunds` (
+    `id`         INT NOT NULL AUTO_INCREMENT,
+    `identifier` VARCHAR(60) NOT NULL,
+    `items`      LONGTEXT NOT NULL,
+    `created_at` BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    KEY `idx_identifier` (`identifier`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
