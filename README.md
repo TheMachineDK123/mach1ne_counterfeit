@@ -18,7 +18,6 @@
 
 ## Indhold
 
-- [Hvad kan scriptet?](#hvad-kan-scriptet)
 - [Sådan laver du pengene](#sådan-laver-du-pengene)
 - [Installation](#installation)
 - [Styring](#styring)
@@ -26,16 +25,6 @@
 - [Indstillinger](#indstillinger)
 - [Animationer](#animationer)
 
-## Hvad kan scriptet?
-
-- **Fire maskiner:** en trykpresse, en tørresnor, en skæremaskine og en sedeltæller. Der er også et arbejdsbord. Maskinerne skifter udseende, mens de arbejder.
-- **Maskinerne bevæger sig:** valserne drejer, sedlerne svajer på snoren, kniven skærer, og sedlerne bladres gennem tælleren.
-- **Din figur arbejder med:** den trækker i håndtaget, lægger papir i og hænger sedler op. Andre spillere ser det samme.
-- **Byg hvor du vil:** ude, inde, i dit hus eller oven på et bord.
-- **Hvert bundt har et serienummer**, så politiet kan finde ud af, hvor pengene kommer fra.
-- **Pressen larmer**, og naboerne kan finde på at ringe til politiet.
-- **En hæler** sælger dig udstyr og køber dine bundter.
-- **Dansk og engelsk.**
 
 ## Sådan laver du pengene
 
