@@ -71,7 +71,7 @@ Hos hæleren kan du tage en **leveringsopgave**: kør et antal bundter ud til en
 
 ## Trykpressen fra Union-heistet
 
-Trykpressen kan ikke købes. Den står inde i boksen i **Union Depository** og kan kun afmonteres, mens boksen er åben under heistet (`mani-unheist`). Der er én presse pr. heist.
+Trykpressen kan ikke købes. Den står inde i boksen i **Union Depository** og kan kun afmonteres, mens boksen er åben under heistet (`mani-unheist`). Der er én presse pr. server-genstart, ligesom pengevognene i heistet.
 
 `mani-unheist` skal have to små exports. Kopiér de tre linjer fra [`install/mani-unheist.lua`](install/mani-unheist.lua) nederst ind i `mani-unheist/server/_state.lua`. Placeringen af pressen i boksen står i `Config.Heist.coords`.
 

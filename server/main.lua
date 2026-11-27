@@ -607,7 +607,8 @@ st.callback.register('mach1ne_counterfeit:finishWork', function(src, id)
             changed(o)
             return false, locale('err_prefix_taken')
         end
-        MySQL.insert.await('INSERT INTO m1_counterfeit_plates (prefix, owner, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE seized = 0',
+        -- IGNORE: findes prefikset (samme ejer), beholdes det - også 'seized', så politiets spor ikke forsvinder
+        MySQL.insert.await('INSERT IGNORE INTO m1_counterfeit_plates (prefix, owner, created_at) VALUES (?, ?, ?)',
             { prefix, w.identifier, now() })
         giveOrDrop(src, { { Config.Items.plate, w.batches, {
             prefix = prefix, uses = Config.Plate.uses, description = locale('plate_desc', prefix, Config.Plate.uses),
@@ -941,6 +942,7 @@ AddEventHandler('playerDropped', function() Courier[source] = nil end)
 
 -- ===================== Union-heist: stjæl en trykpresse =====================
 -- Pressen står i boksen i Union Depository og kan kun tages, mens boksen er åben (mani-unheist), af heist-holdet.
+-- mani-unheist lukker ikke boksen igen før en genstart, så der er én presse pr. server-genstart (ligesom vognene).
 local H = Config.Heist
 GlobalState.m1cfHeistPress = 'ready'
 
@@ -965,10 +967,3 @@ st.callback.register('mach1ne_counterfeit:heistTake', function(src)
     return true
 end)
 
--- Ny presse til næste heist, når boksen er lukket igen (eller ressourcen genstartes).
-CreateThread(function()
-    while H.enabled do
-        Wait(30000)
-        if GlobalState.m1cfHeistPress == 'taken' and not vaultOpen() then GlobalState.m1cfHeistPress = 'ready' end
-    end
-end)
