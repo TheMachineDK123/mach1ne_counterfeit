@@ -188,6 +188,7 @@ Maskinerne og din figur bevæger sig i takt. Når du trækker i håndtaget, går
 | Trykpresse, bagfra | Retter papiret til og skubber det ind |
 | Trykpresse, forfra | Bukker dig ned og løfter bunken op |
 | Tørresnor | Rækker op og hænger arket op |
+| Graverbord | Styrer gravérhovedet hen over pladen og holder fast i maskinen |
 
 </details>
 

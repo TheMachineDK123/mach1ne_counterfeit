@@ -133,8 +133,7 @@ Config.Stations = {
         seconds     = 20.0,
         workText    = 'Graverer trykpladen...',
         uiHeight    = 0.35,
-        -- shortcut: genbruger sedeltællerens ped-animation (samme bordhøjde), lav en 'engrave' i pedanim.py hvis hænderne skal passe præcist
-        work = { offset = vec3(0.0, -0.55, 0.0), clip = 'count' },
+        work = { offset = vec3(0.0, -0.55, 0.0), clip = 'engrave' },                      -- graverbordet står på et bord (0,9 m)
         anim = { active = 'engrave_run' },
         models = {
             empty  = { 'm1_cf_engraver',     'prop_tool_bench02' },
