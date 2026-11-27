@@ -630,6 +630,10 @@ CreateThread(function()
     end
 end)
 
+st.callback.register('mach1ne_counterfeit:getRate', function()
+    return GlobalState.m1cfRate
+end)
+
 local function dealerNear(src)
     local c = Config.Dealer.coords
     return #(playerPos(src) - vec3(c.x, c.y, c.z)) <= 5.0

@@ -89,8 +89,20 @@ function builders.uv(o)
              serial = s.serial, created = s.created, area = area }
 end
 
-function builders.board()
+-- Kursen kommer fra GlobalState. Er den ikke synkroniseret endnu, spørger vi serveren (højst hvert 10. sek).
+local rateCache, rateAsked = nil, 0
+local function currentRate()
     local r = GlobalState.m1cfRate
+    if r then return r end
+    if GetGameTimer() - rateAsked > 10000 then
+        rateAsked = GetGameTimer()
+        CreateThread(function() rateCache = st.callback.await('mach1ne_counterfeit:getRate', false) or rateCache end)
+    end
+    return rateCache
+end
+
+function builders.board()
+    local r = currentRate()
     if not r then return { state = 'closed' } end
     return { state = 'open', price = r.price, rate = math.floor(r.rate * 100 + 0.5), trend = r.trend, demand = r.demand }
 end
@@ -135,7 +147,7 @@ local function open(typ)
     local w, h = cfg.size[1], cfg.size[2]
     serial = serial + 1
     local s = { txd = ('m1cf_dui_%s_%d'):format(typ, serial), txn = 'screen' }
-    s.dui = CreateDui(('nui://%s/html/dui.html?screen=%s'):format(GetCurrentResourceName(), typ), w, h)
+    s.dui = CreateDui(('nui://%s/html/dui.html'):format(GetCurrentResourceName()), w, h)   -- ingen ?query: nui:// finder så ikke filen
     local txd = CreateRuntimeTxd(s.txd)
     CreateRuntimeTextureFromDuiHandle(txd, s.txn, GetDuiHandle(s.dui))
     AddReplaceTexture(SC.txd, cfg.texture, s.txd, s.txn)
@@ -229,7 +241,7 @@ end
 -- ===================== Laptop, UV-scanner og kursskærm (handlinger) =====================
 
 function CF.showRate()
-    local r = GlobalState.m1cfRate
+    local r = currentRate()
     if not r then return CF.notify(locale('rate_unknown'), 'inform') end
     local trend = r.trend > 0 and locale('rate_up') or (r.trend < 0 and locale('rate_down') or locale('rate_flat'))
     CF.notify(locale('rate_now', r.price, math.floor(r.rate * 100 + 0.5), trend), 'inform')

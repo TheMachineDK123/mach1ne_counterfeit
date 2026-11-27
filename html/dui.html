@@ -2,11 +2,12 @@
 <html>
 <head>
 <meta charset="utf-8">
-<!-- DUI-skærme til mach1ne_counterfeit. Samme side bruges til alle skærme: ?screen=counter|hygro|laptop|uv|board.
+<!-- DUI-skærme til mach1ne_counterfeit. Samme side bruges til alle skærme (counter|hygro|laptop|uv|board).
+     Hvilken skærm der vises, står i hver besked (d.screen), fordi nui:// ikke kan bruge en ?query i adressen.
      Data kommer fra client/screens.lua via SendDuiMessage. -->
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100vw; height: 100vh; overflow: hidden; }
+    html, body { width: 100vw; height: 100vh; overflow: hidden; background: #0b0d10; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #fff; }
     .screen { display: none; width: 100%; height: 100%; }
     .on { display: flex; }
@@ -70,9 +71,16 @@
     </div>
 
 <script>
-const type = new URLSearchParams(location.search).get('screen') || 'counter';
-document.getElementById(type).classList.add('on');
+let type = null;
 const $ = id => document.getElementById(id);
+
+// Første besked bestemmer skærmen (og den skifter, hvis typen ændrer sig).
+function show(screen) {
+    if (screen === type || !document.getElementById(screen)) return;
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('on'));
+    $(screen).classList.add('on');
+    type = screen;
+}
 const fmt = n => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
 const render = {
@@ -151,7 +159,8 @@ const render = {
 window.addEventListener('message', e => {
     let d = e.data;
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return; } }
-    if (!d || d.screen !== type || !render[type]) return;
+    if (!d || !render[d.screen]) return;
+    show(d.screen);
     render[type](d, d.txt || {});
 });
 </script>
