@@ -72,6 +72,11 @@
 		description = 'Viser status for maskinerne i dit værksted',
 		client = { image = 'm1f_cf_laptop.png', export = 'mach1ne_counterfeit.useProp' },
 	},
+	['cf_uvlight'] = {
+		label = 'UV-lommelygte', weight = 500, stack = false, close = true, consume = 0,
+		description = 'Politiets UV-lygte. Lys på en person eller en maskine',
+		client = { image = 'm1f_cf_uvlight.png', export = 'mach1ne_counterfeit.useUVLight' },
+	},
 	['cf_engraver'] = {
 		label = 'Graverbord', weight = 9000, stack = true, close = true, consume = 0,
 		description = 'Graverer trykplader med dit eget serie-prefiks. Stil det på et bord',

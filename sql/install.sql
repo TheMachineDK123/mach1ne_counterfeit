@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `m1_counterfeit_serials` (
     `counter_id` INT NOT NULL,
     `owner`      VARCHAR(60) NOT NULL,
     `amount`     INT NOT NULL DEFAULT 0,
+    `press`      VARCHAR(16) NULL,
     `x`          DOUBLE NOT NULL,
     `y`          DOUBLE NOT NULL,
     `z`          DOUBLE NOT NULL,

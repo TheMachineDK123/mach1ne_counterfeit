@@ -21,6 +21,9 @@ client_scripts {
     'client/place.lua',
     'client/dealer.lua',
     'client/courier.lua',
+    'client/uvlight.lua',
+    'client/heist.lua',
+    'client/shop.lua',
 }
 
 server_scripts {
@@ -28,9 +31,12 @@ server_scripts {
     'server/main.lua',
 }
 
+ui_page 'html/shop.html'
+
 files {
     'locales/*.json',
     'html/dui.html',
+    'html/shop.html',
 }
 
 -- Egne props med skelet + prop-/ped-animationer og fælles teksturer (stream/). Kilde i _blender/.

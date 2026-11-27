@@ -1,7 +1,7 @@
 -- Kurer-opgaver fra hæleren: kør N bundter ud til en køber (NPC) inden tiden løber ud.
 local C = Config.Courier
 if not C.enabled then
-    CF.courierOption = function() end
+    CF.courierInfo = function() end
     return
 end
 
@@ -60,36 +60,31 @@ local function spawnPed(p)
     })
 end
 
--- Valgmulighed i hælerens menu: tag en opgave, eller aflys den du har.
-function CF.courierOption()
-    if job then
-        return {
-            title = locale('courier_active'), icon = 'ban',
-            description = locale('courier_active_desc', job.bundles, math.max(0, math.ceil((job.expires - GetGameTimer()) / 60000))),
-            onSelect = function()
-                st.callback.await('mach1ne_counterfeit:courierCancel', false)
-                clear()
-                CF.notify(locale('courier_cancelled'), 'inform')
-            end,
-        }
-    end
-    return {
-        title = locale('courier_take'), description = locale('courier_desc'), icon = 'truck-fast',
-        onSelect = function()
-            local ok, idx, bundles, minutes = st.callback.await('mach1ne_counterfeit:courierStart', 500)
-            if not ok then return CF.notify(idx or locale('err_failed'), 'error') end
-            local p = C.points[idx]
-            job = { point = p, bundles = bundles, expires = GetGameTimer() + minutes * 60000 }
-            job.blip = AddBlipForCoord(p.x, p.y, p.z)
-            SetBlipSprite(job.blip, 500)
-            SetBlipColour(job.blip, 2)
-            SetBlipRoute(job.blip, true)
-            BeginTextCommandSetBlipName('STRING')
-            AddTextComponentSubstringPlayerName(locale('courier_blip'))
-            EndTextCommandSetBlipName(job.blip)
-            CF.notify(locale('courier_started', bundles, minutes), 'inform')
-        end,
-    }
+-- Bruges af butikken (client/shop.lua): info om den aktive opgave, start og aflys.
+function CF.courierInfo()
+    if not job then return nil end
+    return { bundles = job.bundles, minutes = math.max(0, math.ceil((job.expires - GetGameTimer()) / 60000)) }
+end
+
+function CF.courierCancel()
+    st.callback.await('mach1ne_counterfeit:courierCancel', false)
+    clear()
+    return true, locale('courier_cancelled')
+end
+
+function CF.courierStart()
+    local ok, idx, bundles, minutes = st.callback.await('mach1ne_counterfeit:courierStart', 500)
+    if not ok then return false, idx or locale('err_failed') end
+    local p = C.points[idx]
+    job = { point = p, bundles = bundles, expires = GetGameTimer() + minutes * 60000 }
+    job.blip = AddBlipForCoord(p.x, p.y, p.z)
+    SetBlipSprite(job.blip, 500)
+    SetBlipColour(job.blip, 2)
+    SetBlipRoute(job.blip, true)
+    BeginTextCommandSetBlipName('STRING')
+    AddTextComponentSubstringPlayerName(locale('courier_blip'))
+    EndTextCommandSetBlipName(job.blip)
+    return true, locale('courier_started', bundles, minutes)
 end
 
 CreateThread(function()

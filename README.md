@@ -22,6 +22,7 @@
 - [Installation](#installation)
 - [Trykplader](#trykplader)
 - [Kurer-opgaver](#kurer-opgaver)
+- [Trykpressen fra Union-heistet](#trykpressen-fra-union-heistet)
 - [Styring](#styring)
 - [Skærmene](#skærmene)
 - [Politiet](#politiet)
@@ -51,11 +52,13 @@ Før du kan trykke, skal du have en trykplade. Den laver du på **graverbordet**
 
 - Du vælger selv et **prefiks på 2 bogstaver**, fx `AB`. Det står foran serienummeret på alle dine sedler: `AB 04821K`.
 - Et prefiks tilhører den, der lavede det første gang. Andre kan ikke bruge det.
-- Pladen **slides**: den kan bruges til 20 portioner i trykpressen (`Config.Plate.uses`), og så er den væk.
-- Prefikset følger arkene og sedlerne hele vejen igennem til bundtet.
+- Pladen sættes **i pressen** (`Isæt trykplade`), og du kan se den sidde på valsen. Den bliver siddende, til den er slidt op eller du tager den ud.
+- Pladen **slides**: den kan bruges til 20 portioner (`Config.Plate.uses`), og så er den væk.
+- Hver presse har sit eget **serienummer** på typeskiltet, fx `KO-41877`.
+- Pladens prefiks og pressens serienummer følger arkene og sedlerne hele vejen igennem til bundtet.
 
 > [!WARNING]
-> Pas på din plade. Får politiet fat i den og scanner den med UV-scanneren, kan de se, hvem der ejer den. Så viser deres scanner ejerens navn på **alle** bundter med dit prefiks.
+> Pas på din plade. Får politiet fat i den (eller beslaglægger pressen med pladen i), kan de se, hvem der ejer den. Så viser deres scanner ejerens navn på **alle** bundter med dit prefiks.
 
 ## Kurer-opgaver
 
@@ -65,6 +68,12 @@ Hos hæleren kan du tage en **leveringsopgave**: kør et antal bundter ud til en
 - Der er en chance på 25 % for, at politiet får et anonymt tip om stedet.
 - Kommer du for sent, er køberen gået. Du kan tage en ny opgave hvert 20. minut.
 - Alt kan justeres under `Config.Courier`, også afleveringsstederne.
+
+## Trykpressen fra Union-heistet
+
+Trykpressen kan ikke købes. Den står inde i boksen i **Union Depository** og kan kun afmonteres, mens boksen er åben under heistet (`mani-unheist`). Der er én presse pr. heist.
+
+`mani-unheist` skal have to små exports. Kopiér de tre linjer fra [`install/mani-unheist.lua`](install/mani-unheist.lua) nederst ind i `mani-unheist/server/_state.lua`. Placeringen af pressen i boksen står i `Config.Heist.coords`.
 
 ## Installation
 
@@ -84,7 +93,7 @@ Hos hæleren kan du tage en **leveringsopgave**: kør et antal bundter ud til en
 
 > [!NOTE]
 > Hæleren står på Elysian Island. Du kan flytte ham i `config.lua` under `Config.Dealer`.
-> UV-scannerne (`cf_scanner` til lommen og `cf_uvscanner` til bordet) kan ikke købes hos hæleren. Giv dem til politiet, f.eks. i deres våbenlager.
+> Politiets udstyr (`cf_uvlight` UV-lommelygte, `cf_scanner` og `cf_uvscanner` til bordet) kan ikke købes hos hæleren. Giv det til politiet, f.eks. i deres våbenlager.
 >
 > Bruger du ox_target, skal den startes før `mach1ne_counterfeit`. Vil du hellere have 3D-tekst, så sæt `Config.Interaction = 'st_libs'`.
 
@@ -105,7 +114,7 @@ Med ox_target sigter du bare på tingen og vælger i menuen. Med 3D-tekst bruger
 
 | | `E` | `G` (kun ejeren) | `H` (kun politi) |
 | --- | --- | --- | --- |
-| Trykpresse og tørresnor | Fyld, se tid eller tøm | Pak sammen (skal være tom) | Beslaglæg |
+| Trykpresse og tørresnor | Fyld, se tid eller tøm (`Y`: isæt eller tag pladen ud) | Pak sammen (skal være tom) | Beslaglæg (`L`: aflæs typeskilt) |
 | Skæremaskine og sedeltæller | Gå i gang | Pak sammen | Beslaglæg |
 | Arbejdsbord | | Pak sammen | Beslaglæg |
 | Graverbord | Gravér en trykplade | Pak sammen | Beslaglæg |
@@ -136,6 +145,8 @@ Står der flere af samme slags, er det den, du står tættest på, der er tændt
 ## Politiet
 
 - **Naboerne ringer:** mens pressen kører, kan politiet få et område vist på kortet. Det sker kun, når pressen står ude i verden, ikke inde i et hus (kan slås til med `Config.Noise.callFromInstances`).
+- **UV-lommelygte:** tænd den og lys på en person (tryk `E`) for at se de falske bundter, personen har på sig, med serie, presse og eventuelt pladens ejer. Lys på en maskine for at aflæse typeskiltet.
+- **Typeskilt:** ved en presse kan politiet aflæse serienummeret og se, hvilken plade der sidder i.
 - **UV-scanner i lommen:** alle kan se, at sedlerne er falske. Politiet kan også se, hvornår bundtet blev lavet, og cirka hvor. De kan sætte et punkt på kortet.
 - **UV-scanner på bordet:** politiet kan stille en scanner op på stationen. Resultatet kommer også op på scannerens skærm, så kollegaerne kan se med.
 - **Beslaglæg:** tryk `H` ved en maskine for at tage den.
@@ -153,6 +164,8 @@ Alt kan ændres i [`config.lua`](config.lua):
 | `Config.Bundle` | Hvor mange sedler der er i et bundt, og hvad det er værd |
 | `Config.Plate` | Hvor mange portioner en trykplade holder, og hvilke prefikser der ikke må bruges |
 | `Config.Courier` | Kurer-opgaver: antal bundter, tid, bonus, chancen for tip og afleveringssteder |
+| `Config.UVLight` | UV-lommelygtens rækkevidde og farve |
+| `Config.Heist` | Trykpressen i Union-heistet: placering, og om kun heist-holdet må tage den |
 | `Config.Noise` | Hvor tit naboerne ringer |
 | `Config.Police` | Hvilke jobs der tæller som politi |
 | `Config.Dealer` | Hvor hæleren står, hvad han sælger, hvordan prisen svinger, og om der skal stå en fast kursskærm ved ham |

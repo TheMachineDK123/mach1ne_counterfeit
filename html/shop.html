@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<!-- Hælerens butik (NUI). Åbnes fra client/shop.lua. Stilren og minimalistisk: køb, sælg, opgaver. -->
+<style>
+    :root {
+        --bg: rgba(14, 15, 18, .96); --panel: #17191d; --line: #24272d; --text: #e8e9eb; --muted: #8a8f98;
+        --accent: #d8b35a; --good: #5fd38d; --bad: #ef6461;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: transparent; font-family: 'Inter', 'Segoe UI', sans-serif; color: var(--text); user-select: none; }
+    #app { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; }
+    #app.open { display: flex; }
+    .shop { width: 760px; max-height: 560px; background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+            box-shadow: 0 30px 80px rgba(0,0,0,.55); display: flex; flex-direction: column; overflow: hidden; animation: in .18s ease-out; }
+    @keyframes in { from { opacity: 0; transform: translateY(8px) scale(.99); } }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; border-bottom: 1px solid var(--line); }
+    header h1 { font-size: 17px; font-weight: 600; letter-spacing: .2px; }
+    header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .rate { text-align: right; font-size: 12px; color: var(--muted); }
+    .rate b { display: block; font-size: 16px; color: var(--text); font-weight: 600; }
+    .up { color: var(--good); } .down { color: var(--bad); }
+    nav { display: flex; gap: 4px; padding: 10px 18px 0; }
+    nav button { background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+    nav button.on { color: var(--text); background: var(--panel); }
+    main { padding: 14px 18px 18px; overflow-y: auto; }
+    main::-webkit-scrollbar { width: 6px; } main::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+    .tab { display: none; } .tab.on { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .card img { width: 64px; height: 64px; object-fit: contain; align-self: center; }
+    .card .name { font-size: 13px; font-weight: 500; }
+    .card .price { font-size: 12px; color: var(--muted); }
+    .row { display: flex; align-items: center; gap: 6px; }
+    .qty { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .qty button { width: 26px; height: 28px; background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 14px; }
+    .qty input { width: 34px; height: 28px; background: none; border: 0; color: var(--text); text-align: center; font: inherit; font-size: 13px; }
+    .qty input::-webkit-inner-spin-button { display: none; }
+    .btn { flex: 1; height: 30px; border: 0; border-radius: 8px; background: var(--text); color: #111; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn:hover { filter: brightness(.92); } .btn:disabled { opacity: .35; cursor: default; }
+    .btn.ghost { background: none; color: var(--text); border: 1px solid var(--line); }
+    .block { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+    .big { font-size: 28px; font-weight: 600; margin: 6px 0 2px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    input[type=range] { width: 100%; accent-color: var(--accent); margin: 16px 0 10px; }
+    .split { display: flex; justify-content: space-between; align-items: end; }
+    .toast { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line);
+             padding: 10px 16px; border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity .2s; }
+    .toast.show { opacity: 1; } .toast.bad { border-color: var(--bad); }
+</style>
+</head>
+<body>
+<div id="app">
+    <div class="shop">
+        <header>
+            <div><h1 id="t-title"></h1><p id="t-sub"></p></div>
+            <div class="rate"><span id="t-rate"></span><b id="rate"></b></div>
+        </header>
+        <nav>
+            <button data-tab="buy" class="on" id="t-buy"></button>
+            <button data-tab="sell" id="t-sell"></button>
+            <button data-tab="jobs" id="t-jobs"></button>
+        </nav>
+        <main>
+            <section class="tab on" id="buy"><div class="grid" id="items"></div></section>
+            <section class="tab" id="sell">
+                <div class="block">
+                    <div class="muted" id="t-have"></div>
+                    <div class="big" id="have">0</div>
+                    <input type="range" id="sell-amount" min="1" max="1" value="1">
+                    <div class="split">
+                        <div><div class="muted" id="t-payout"></div><div class="big" id="payout">0</div></div>
+                        <button class="btn" style="flex:0 0 160px" id="sell-btn"></button>
+                    </div>
+                </div>
+            </section>
+            <section class="tab" id="jobs">
+                <div class="block">
+                    <div class="name" id="job-title"></div>
+                    <p class="muted" id="job-desc" style="margin:6px 0 16px"></p>
+                    <button class="btn" id="job-btn"></button>
+                </div>
+            </section>
+        </main>
+    </div>
+    <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const res = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'mach1ne_counterfeit';
+const post = (name, data = {}) => fetch(`https://${res}/${name}`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()).catch(() => ({}));
+const fmt = n => Math.round(n).toLocaleString('da-DK');
+let S = { t: {}, items: [], rate: null, bundles: 0, sellMax: 20, courier: null };
+
+function toast(msg, bad) {
+    const el = $('toast'); el.textContent = msg; el.className = 'toast show' + (bad ? ' bad' : '');
+    clearTimeout(toast.t); toast.t = setTimeout(() => el.className = 'toast', 2600);
+}
+
+function renderRate() {
+    const r = S.rate;
+    $('rate').innerHTML = r ? `${fmt(r.price)} ${S.t.currency} <span class="${r.trend > 0 ? 'up' : r.trend < 0 ? 'down' : ''}">${r.trend > 0 ? '▲' : r.trend < 0 ? '▼' : '•'}</span>` : '–';
+}
+
+function renderItems() {
+    const g = $('items'); g.innerHTML = '';
+    for (const it of S.items) {
+        const c = document.createElement('div'); c.className = 'card';
+        c.innerHTML = `<img src="${it.image}" onerror="this.style.visibility='hidden'">
+            <div><div class="name">${it.label}</div><div class="price">${fmt(it.price)} ${S.t.currency}</div></div>
+            <div class="row"><div class="qty"><button>−</button><input type="number" value="1" min="1" max="100"><button>+</button></div>
+            <button class="btn">${S.t.buy}</button></div>`;
+        const [minus, input, plus] = c.querySelectorAll('.qty > *');
+        const clamp = () => input.value = Math.max(1, Math.min(100, parseInt(input.value) || 1));
+        minus.onclick = () => { input.value--; clamp(); };
+        plus.onclick = () => { input.value++; clamp(); };
+        input.onchange = clamp;
+        c.querySelector('.btn').onclick = async e => {
+            e.target.disabled = true;
+            const r = await post('buy', { name: it.name, amount: parseInt(input.value) });
+            e.target.disabled = false;
+            if (r.msg) toast(r.msg, !r.ok);
+        };
+        g.appendChild(c);
+    }
+}
+
+function renderSell() {
+    const max = Math.min(S.bundles, S.sellMax), slider = $('sell-amount');
+    $('have').textContent = S.bundles;
+    slider.max = Math.max(1, max); slider.value = Math.min(slider.value, slider.max); slider.disabled = max < 1;
+    $('sell-btn').disabled = max < 1;
+    $('payout').textContent = `${fmt((S.rate ? S.rate.price : 0) * (max < 1 ? 0 : slider.value))} ${S.t.currency}`;
+    $('sell-btn').textContent = `${S.t.sellBtn} ${max < 1 ? 0 : slider.value}`;
+}
+
+function renderJob() {
+    const c = S.courier;
+    $('job-title').textContent = c ? S.t.jobActive : S.t.jobTake;
+    $('job-desc').textContent = c ? S.t.jobActiveDesc.replace('%d', c.bundles).replace('%d', c.minutes) : S.t.jobDesc;
+    $('job-btn').textContent = c ? S.t.jobCancel : S.t.jobStart;
+    $('job-btn').className = c ? 'btn ghost' : 'btn';
+}
+
+function render() { renderRate(); renderSell(); renderJob(); }
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('nav button, .tab').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); $(b.dataset.tab).classList.add('on');
+});
+$('sell-amount').oninput = renderSell;
+$('sell-btn').onclick = async () => {
+    $('sell-btn').disabled = true;
+    const r = await post('sell', { amount: parseInt($('sell-amount').value) });
+    if (r.msg) toast(r.msg, !r.ok);
+    renderSell();
+};
+$('job-btn').onclick = async () => {
+    const r = await post('courier');
+    if (r.msg) toast(r.msg, !r.ok);
+};
+document.addEventListener('keyup', e => { if (e.key === 'Escape') post('close'); });
+
+window.addEventListener('message', e => {
+    const d = e.data;
+    if (d.action === 'open') {
+        S = Object.assign(S, d);
+        const t = S.t;
+        $('t-title').textContent = t.title; $('t-sub').textContent = t.sub; $('t-rate').textContent = t.rate;
+        $('t-buy').textContent = t.tabBuy; $('t-sell').textContent = t.tabSell; $('t-jobs').textContent = t.tabJobs;
+        $('t-have').textContent = t.have; $('t-payout').textContent = t.payout;
+        $('t-jobs').style.display = d.courierEnabled ? '' : 'none';
+        renderItems(); render();
+        $('app').classList.add('open');
+    } else if (d.action === 'update') {
+        S = Object.assign(S, d); render();
+    } else if (d.action === 'close') {
+        $('app').classList.remove('open');
+    }
+});
+</script>
+</body>
+</html>

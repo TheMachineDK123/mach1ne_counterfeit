@@ -21,6 +21,24 @@ Config.Items = {
     scanner  = 'cf_scanner',     -- UV-seddelscanner
     plate    = 'cf_plate',       -- graveret trykplade (metadata: prefix, uses)
     plateBlank = 'cf_plate_blank', -- blank kobberplade
+    uvlight  = 'cf_uvlight',     -- politiets UV-lommelygte
+}
+
+-- UV-lommelygte (politi): lys på en spiller for at se falske bundter, eller på en maskine for at se typeskiltet.
+Config.UVLight = {
+    range = 3.0,
+    color = { 150, 60, 255 },
+    prop  = 'prop_cs_police_torch',
+    anim  = { dict = 'amb@world_human_security_shine_torch@male@base', clip = 'base' },
+}
+
+-- Trykpressen sælges ikke af hæleren. Den skal stjæles i Union-heistet (mani-unheist), mens boksen er åben.
+Config.Heist = {
+    enabled  = true,
+    resource = 'mani-unheist',
+    crewOnly = true,                                    -- kun spillere, der er med i heistet
+    coords   = vector4(5.2, -661.8, 16.13, 90.0),       -- i boksen ved vognene (ret hvis den står forkert)
+    seconds  = 30,                                       -- tid det tager at afmontere pressen
 }
 
 -- Trykplader: laves på graverbordet med et prefiks på 2 bogstaver, som står foran serienummeret
@@ -263,7 +281,7 @@ Config.Dealer = {
         { name = 'cf_paper',   label = 'Bomuldspapir',      price = 150 },
         { name = 'cf_ink',     label = 'Sikkerhedsblæk',    price = 400 },
         { name = 'cf_band',    label = 'Banderoler',        price = 50 },
-        { name = 'cf_press',   label = 'Trykpresse',        price = 15000 },
+        -- cf_press sælges ikke: den skal stjæles i Union-heistet (Config.Heist)
         { name = 'cf_dryline', label = 'Tørresnor',         price = 1500 },
         { name = 'cf_cutter',  label = 'Skæremaskine',      price = 6000 },
         { name = 'cf_counter', label = 'Sedeltæller',       price = 4500 },

@@ -160,6 +160,14 @@ local function buildOptions(o, t)
         local state = Util.stationState(o.data, t)
         if state == 'empty' then
             add(locale('ui_fill', def.label:lower(), inputText(def)), 'E', 38, 0.0, function() CF.fill(id) end)
+            if def.plate then
+                local p = o.data.plate
+                if p then
+                    add(locale('ui_plate_remove', p.prefix, p.uses), 'Y', 246, 0.125, function() CF.plate(id, 'removePlate') end)
+                else
+                    add(locale('ui_plate_insert'), 'Y', 246, 0.125, function() CF.plate(id, 'insertPlate') end)
+                end
+            end
             add(locale('ui_pickup', def.label:lower()), 'G', 47, 0.25, function() CF.pickup(id) end)
         elseif state == 'working' then
             local m = minutesLeft(o, t)
@@ -192,6 +200,9 @@ local function buildOptions(o, t)
     if not def.police then
         add(locale('ui_seize'), 'H', 74, 0.5, function() CF.seize(id) end, canPolice)
     end
+    if o.data.serial then
+        add(locale('ui_serial'), 'L', 182, 0.625, function() CF.showSerial(id) end, canPolice)
+    end
     return opts
 end
 
@@ -202,7 +213,8 @@ local function uiKeyOf(o, t)
     if o.kind ~= 'station' then return 'prop' end
     local state = Util.stationState(o.data, t)
     if def.mode == 'timed' then
-        return state == 'working' and ('working:' .. minutesLeft(o, t)) or state
+        local plate = o.data.plate and (o.data.plate.prefix .. o.data.plate.uses) or '-'
+        return (state == 'working' and ('working:' .. minutesLeft(o, t)) or state) .. ':' .. plate
     end
     return state == 'active' and 'active' or 'idle'
 end
@@ -215,9 +227,32 @@ end
 
 -- ===================== Spawn / despawn =====================
 
+-- Isat trykplade vises som en kobberplade på pressens pladevalse (sidder på 'plate'-knoglen og drejer med).
+local function updatePlate(o, e)
+    local want = o.data.plate and e.custom and e.obj and DoesEntityExist(e.obj)
+    if want and not e.plateObj then
+        local hash = joaat('m1_cf_platemount')
+        if not IsModelInCdimage(hash) or not pcall(st.requestModel, hash, 3000) then return end
+        local p = CreateObjectNoOffset(hash, o.pos.x, o.pos.y, o.pos.z, false, false, false)
+        SetEntityCollision(p, false, false)
+        local bone = GetEntityBoneIndexByName(e.obj, 'plate')
+        if bone ~= -1 then
+            AttachEntityToEntity(p, e.obj, bone, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, false, 2, true)
+        else
+            AttachEntityToEntity(p, e.obj, 0, 0.0, 0.12, 0.98, 0.0, 0.0, 0.0, false, false, false, false, 2, true)
+        end
+        SetModelAsNoLongerNeeded(hash)
+        e.plateObj = p
+    elseif not want and e.plateObj then
+        if DoesEntityExist(e.plateObj) then DeleteEntity(e.plateObj) end
+        e.plateObj = nil
+    end
+end
+
 local function despawn(id)
     local e = ents[id]
     if not e then return end
+    if e.plateObj and DoesEntityExist(e.plateObj) then DeleteEntity(e.plateObj) end
     Interact.clear(uiId(id))
     if e.obj and DoesEntityExist(e.obj) then DeleteEntity(e.obj) end
     ents[id] = nil
@@ -242,6 +277,8 @@ local function spawnModel(o, e, hash, list)
             if Interact.target then Interact.clear(uiId(o.id)) end
             DeleteEntity(e.obj)
         end
+        if e.plateObj and DoesEntityExist(e.plateObj) then DeleteEntity(e.plateObj) end
+        e.plateObj = nil
         if Interact.target then e.uiKey = nil end      -- ox_target sidder på entity'en: bind igen
         local obj = CreateObjectNoOffset(hash, o.pos.x, o.pos.y, o.pos.z, false, false, false)
         SetEntityHeading(obj, o.h or 0.0)
@@ -264,6 +301,7 @@ sync = function(o, t)
     if hash and hash ~= e.model and not e.loading then spawnModel(o, e, hash, list) end
     refreshUI(o, e, t)
     updateAnim(o, e, t)
+    updatePlate(o, e)
 end
 
 CreateThread(function()
@@ -534,6 +572,20 @@ function CF.work(id)
     end
 end
 
+function CF.plate(id, event)
+    local ok, a, b = action(locale(event == 'insertPlate' and 'plate_inserting' or 'plate_removing'), 3000,
+        Config.Anims.collect, 'mach1ne_counterfeit:' .. event, id, Config.Stations.cf_press.work)
+    if ok then CF.notify(locale(event == 'insertPlate' and 'plate_inserted' or 'plate_removed', a, b), 'success') end
+end
+
+-- Politiet aflæser pressens typeskilt.
+function CF.showSerial(id)
+    local o = Objects[id]
+    if not o or not o.data.serial then return end
+    local p = o.data.plate
+    CF.notify(p and locale('serial_plate', o.data.serial, p.prefix, p.uses) or locale('serial_noplate', o.data.serial), 'inform')
+end
+
 function CF.pickup(id)
     local ok = action(locale('picking_up'), Config.Anims.place.duration, Config.Anims.place, 'mach1ne_counterfeit:pickup', id)
     if ok then CF.notify(locale('picked_up'), 'success') end
@@ -567,6 +619,7 @@ function CF.showScanResults(list, police)
         if police and e.created then
             desc = locale('scan_origin', desc, e.createdText or '?', e.counterId,
                 e.active and locale('scan_still_placed') or locale('scan_removed'))
+            if e.press then desc = desc .. '\n' .. locale('scan_press', e.press) end
             if e.plateOwner then desc = desc .. '\n' .. locale('scan_plate_owner', e.plateOwner) end
             meta = { { label = locale('scan_area'), value = zoneLabel(e.pos) },
                      { label = locale('scan_batch'), value = locale('scan_batch_value', e.batch or 0) } }
