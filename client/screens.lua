@@ -236,8 +236,58 @@ function CF.openLaptop(id)
         }
     end
     if #options == 0 then options[1] = { title = locale('laptop_none'), disabled = true } end
+    table.insert(options, 1, { title = locale('laptop_access'), description = locale('laptop_access_desc'), icon = 'users',
+                               arrow = true, onSelect = function() CF.openAccess(id) end })
     lib.registerContext({ id = 'mach1ne_counterfeit_laptop', title = locale('laptop_title'), options = options })
     lib.showContext('mach1ne_counterfeit_laptop')
+end
+
+-- Adgang: ejeren giver andre spillere lov til at bruge sine maskiner ved laptoppen.
+local function accessAdd(lapId, machineId)
+    local input = lib.inputDialog(locale('access_add_title'), {
+        { type = 'number', label = locale('access_player_id'), required = true, min = 1 },
+    })
+    if not input then return CF.openAccess(lapId) end
+    local ok, a, n = st.callback.await('mach1ne_counterfeit:accessAdd', 500, lapId, input[1], machineId)
+    CF.notify(ok and locale('access_added', a, n) or (a or locale('err_failed')), ok and 'success' or 'error')
+    CF.openAccess(lapId)
+end
+
+local function machineAccess(lapId, m)
+    local options = { { title = locale('access_add'), icon = 'user-plus', onSelect = function() accessAdd(lapId, m.id) end } }
+    for _, u in ipairs(m.users) do
+        options[#options + 1] = {
+            title = u.name, description = locale('access_remove_hint'), icon = 'user-minus',
+            onSelect = function()
+                local ok, err = st.callback.await('mach1ne_counterfeit:accessRemove', 500, lapId, m.id, u.identifier)
+                CF.notify(ok and locale('access_removed', u.name) or (err or locale('err_failed')), ok and 'success' or 'error')
+                CF.openAccess(lapId)
+            end,
+        }
+    end
+    lib.registerContext({ id = 'mach1ne_counterfeit_access_m', title = ('%s #%d'):format(Config.Stations[m.type].label, m.id),
+                          menu = 'mach1ne_counterfeit_access', options = options })
+    lib.showContext('mach1ne_counterfeit_access_m')
+end
+
+function CF.openAccess(lapId)
+    local ok, list = st.callback.await('mach1ne_counterfeit:accessList', 500, lapId)
+    if not ok then return CF.notify(list or locale('err_failed'), 'error') end
+    local options = {}
+    if #list == 0 then
+        options[1] = { title = locale('laptop_none_owned'), disabled = true }
+    else
+        options[1] = { title = locale('access_add_all'), icon = 'user-plus', onSelect = function() accessAdd(lapId) end }
+    end
+    for _, m in ipairs(list) do
+        options[#options + 1] = {
+            title = ('%s #%d'):format(Config.Stations[m.type].label, m.id), description = locale('access_users', #m.users),
+            icon = 'gears', arrow = true, onSelect = function() machineAccess(lapId, m) end,
+        }
+    end
+    lib.registerContext({ id = 'mach1ne_counterfeit_access', title = locale('access_title'),
+                          menu = 'mach1ne_counterfeit_laptop', options = options })
+    lib.showContext('mach1ne_counterfeit_access')
 end
 
 function CF.scanDesk(id)

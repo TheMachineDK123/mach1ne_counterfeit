@@ -24,6 +24,7 @@
 - [Trykplader](#trykplader)
 - [Kurer-opgaver](#kurer-opgaver)
 - [Trykpressen fra Union-heistet](#trykpressen-fra-union-heistet)
+- [Adgang til maskinerne](#adgang-til-maskinerne)
 - [Styring](#styring)
 - [Skærmene](#skærmene)
 - [Politiet](#politiet)
@@ -98,6 +99,19 @@ Heistet har allerede de to exports (`isVaultOpen` og `isCrew`), som counterfeit 
 >
 > Bruger du ox_target, skal den startes før `mach1ne_counterfeit`. Vil du hellere have 3D-tekst, så sæt `Config.Interaction = 'st_libs'`.
 
+## Adgang til maskinerne
+
+Dine maskiner kan kun bruges af dig og de spillere, du giver adgang. Andre kan ikke fylde, tømme eller starte dem. Politiet kan stadig beslaglægge dem.
+
+Du giver adgang fra en **laptop** i værkstedet:
+
+1. Åbn laptoppen og vælg **Adgang til maskiner**. Du ser kun de maskiner, du selv ejer, inden for laptoppens rækkevidde (`Config.Screens.types.laptop.range`).
+2. Vælg **Tilføj bruger til alle mine maskiner her**, eller vælg én maskine og **Tilføj bruger**.
+3. Skriv spillerens ID. Spilleren skal være online.
+4. Klik på en bruger under en maskine for at fjerne adgangen igen.
+
+Kun ejeren kan pakke en maskine sammen.
+
 ## Styring
 
 **Når du stiller noget op**
@@ -119,7 +133,7 @@ Med ox_target sigter du bare på tingen og vælger i menuen. Med 3D-tekst bruger
 | Skæremaskine og sedeltæller | Gå i gang | Pak sammen | Beslaglæg |
 | Arbejdsbord | | Pak sammen | Beslaglæg |
 | Graverbord | Gravér en trykplade | Pak sammen | Beslaglæg |
-| Laptop | Se dine maskiner | Pak sammen | Beslaglæg |
+| Laptop | Se dine maskiner og styr, hvem der må bruge dem | Pak sammen | Beslaglæg |
 | UV-scanner (bord) | Scan bundter (kun politi) | Pak sammen | |
 | Kursskærm | Se kursen | Pak sammen | Beslaglæg |
 

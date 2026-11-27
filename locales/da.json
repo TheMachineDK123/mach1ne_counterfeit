@@ -191,5 +191,20 @@
     "shop_payout": "Du får",
     "shop_sell_btn": "Sælg",
     "shop_job_start": "Tag opgaven",
-    "shop_job_cancel": "Aflys opgaven"
+    "shop_job_cancel": "Aflys opgaven",
+    "err_no_access": "Du har ikke adgang til denne maskine",
+    "laptop_access": "Adgang til maskiner",
+    "laptop_access_desc": "Giv andre lov til at bruge dine maskiner",
+    "laptop_none_owned": "Du ejer ingen maskiner her",
+    "access_title": "Adgang",
+    "access_add_all": "Tilføj bruger til alle mine maskiner her",
+    "access_add": "Tilføj bruger",
+    "access_add_title": "Tilføj bruger",
+    "access_player_id": "Spillerens ID",
+    "access_users": "%d bruger(e) ud over dig",
+    "access_added": "%s har nu adgang til %d maskine(r)",
+    "access_removed": "%s har ikke længere adgang",
+    "access_remove_hint": "Klik for at fjerne adgangen",
+    "access_no_player": "Der er ingen spiller med det ID",
+    "access_self": "Du ejer allerede maskinerne"
 }

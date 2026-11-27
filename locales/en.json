@@ -191,5 +191,20 @@
     "shop_payout": "You get",
     "shop_sell_btn": "Sell",
     "shop_job_start": "Take the job",
-    "shop_job_cancel": "Cancel the job"
+    "shop_job_cancel": "Cancel the job",
+    "err_no_access": "You don't have access to this machine",
+    "laptop_access": "Machine access",
+    "laptop_access_desc": "Let others use your machines",
+    "laptop_none_owned": "You don't own any machines here",
+    "access_title": "Access",
+    "access_add_all": "Add user to all my machines here",
+    "access_add": "Add user",
+    "access_add_title": "Add user",
+    "access_player_id": "Player ID",
+    "access_users": "%d user(s) besides you",
+    "access_added": "%s now has access to %d machine(s)",
+    "access_removed": "%s no longer has access",
+    "access_remove_hint": "Click to remove access",
+    "access_no_player": "No player with that ID",
+    "access_self": "You already own the machines"
 }

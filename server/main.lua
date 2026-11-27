@@ -64,6 +64,9 @@ CreateThread(function()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ]])
 
+    if not MySQL.scalar.await("SHOW COLUMNS FROM `m1_counterfeit_objects` LIKE 'users'") then
+        MySQL.query.await('ALTER TABLE `m1_counterfeit_objects` ADD COLUMN `users` LONGTEXT NULL AFTER `data`')
+    end
     if not MySQL.scalar.await("SHOW COLUMNS FROM `m1_counterfeit_serials` LIKE 'press'") then
         MySQL.query.await('ALTER TABLE `m1_counterfeit_serials` ADD COLUMN `press` VARCHAR(16) NULL AFTER `amount`')
     end
@@ -86,6 +89,7 @@ CreateThread(function()
         Objects[row.id] = {
             id = row.id, kind = row.kind, type = row.type, owner = row.owner, bucket = row.bucket or 0,
             pos = { x = row.x, y = row.y, z = row.z }, h = row.h, data = data,
+            users = row.users and json.decode(row.users) or {},     -- [identifier] = navn, ud over ejeren
         }
     end
     -- presser fra før serienumrene får et nummer nu
@@ -155,6 +159,15 @@ local function getObj(src, id, kind)
     if not o or (kind and o.kind ~= kind) then return nil, locale('err_gone') end
     if o.bucket ~= GetPlayerRoutingBucket(src) then return nil, locale('err_gone') end
     if #(playerPos(src) - vec3(o.pos.x, o.pos.y, o.pos.z)) > 4.0 then return nil, locale('err_too_far') end
+    return o
+end
+
+-- Maskiner kan kun bruges af ejeren og de brugere, ejeren har tilføjet fra laptoppen.
+local function getUsable(src, id, kind)
+    local o, err = getObj(src, id, kind)
+    if not o then return nil, err end
+    local identifier = getIdentifier(src)
+    if o.owner ~= identifier and not o.users[identifier] then return nil, locale('err_no_access') end
     return o
 end
 
@@ -372,7 +385,7 @@ st.callback.register('mach1ne_counterfeit:place', function(src, itemName, pos, h
     end
 
     local o = { id = id, kind = kind, type = itemName, owner = identifier, bucket = bucket,
-                pos = { x = pos.x, y = pos.y, z = pos.z }, h = heading, data = data }
+                pos = { x = pos.x, y = pos.y, z = pos.z }, h = heading, data = data, users = {} }
     Objects[id] = o
     toBucket(bucket, 'mach1ne_counterfeit:add', public(o))
     log(src, ('placerede %s #%d ved %.1f, %.1f, %.1f (bucket %d)'):format(itemName, id, pos.x, pos.y, pos.z, bucket))
@@ -382,7 +395,7 @@ end)
 -- ===================== Tidsstyrede maskiner (presse / tørresnor) =====================
 
 st.callback.register('mach1ne_counterfeit:fill', function(src, id)
-    local o, err = getObj(src, id, 'station')
+    local o, err = getUsable(src, id, 'station')
     if not o then return false, err end
     local def = Config.Stations[o.type]
     if not def or def.mode ~= 'timed' then return false, locale('err_unknown_machine') end
@@ -416,7 +429,7 @@ st.callback.register('mach1ne_counterfeit:fill', function(src, id)
 end)
 
 st.callback.register('mach1ne_counterfeit:collect', function(src, id)
-    local o, err = getObj(src, id, 'station')
+    local o, err = getUsable(src, id, 'station')
     if not o then return false, err end
     local def   = Config.Stations[o.type]
     if not def or def.mode ~= 'timed' then return false, locale('err_unknown_machine') end
@@ -447,7 +460,7 @@ end)
 
 -- Trykpladen sidder i pressen, til den er slidt op eller tages ud.
 st.callback.register('mach1ne_counterfeit:insertPlate', function(src, id)
-    local o, err = getObj(src, id, 'station')
+    local o, err = getUsable(src, id, 'station')
     if not o then return false, err end
     local def = Config.Stations[o.type]
     if not (def and def.plate) then return false, locale('err_unknown_machine') end
@@ -463,7 +476,7 @@ st.callback.register('mach1ne_counterfeit:insertPlate', function(src, id)
 end)
 
 st.callback.register('mach1ne_counterfeit:removePlate', function(src, id)
-    local o, err = getObj(src, id, 'station')
+    local o, err = getUsable(src, id, 'station')
     if not o then return false, err end
     if not o.data.plate then return false, locale('err_no_plate_inserted') end
     if Util.stationState(o.data, now()) ~= 'empty' then return false, locale('err_busy') end
@@ -521,7 +534,7 @@ local function checkPrefix(prefix, identifier)
 end
 
 st.callback.register('mach1ne_counterfeit:startWork', function(src, id, wantPrefix)
-    local o, err = getObj(src, id, 'station')
+    local o, err = getUsable(src, id, 'station')
     if not o then return false, err end
     local def = Config.Stations[o.type]
     if not def or def.mode ~= 'active' then return false, locale('err_unknown_machine') end
@@ -697,6 +710,76 @@ AddEventHandler('esx:playerLoaded', function(src, xPlayer)
     SetTimeout(8000, function()     -- giv ox_inventory tid til at indlæse inventaret
         if GetPlayerName(src) then payRefunds(src, identifier) end
     end)
+end)
+
+-- ===================== Adgang (styres fra laptoppen) =====================
+
+-- Ejerens egne maskiner inden for laptoppens rækkevidde.
+local function ownedNear(src, laptopId)
+    local lap, err = getObj(src, laptopId, 'prop')
+    if not lap or lap.type ~= 'cf_laptop' then return nil, err or locale('err_gone') end
+    local identifier = getIdentifier(src)
+    local c, range = vec3(lap.pos.x, lap.pos.y, lap.pos.z), Config.Screens.types.laptop.range or 25.0
+    local list = {}
+    for _, o in pairs(Objects) do
+        if o.kind == 'station' and o.owner == identifier and o.bucket == lap.bucket
+            and #(c - vec3(o.pos.x, o.pos.y, o.pos.z)) <= range then
+            list[#list + 1] = o
+        end
+    end
+    table.sort(list, function(a, b) return a.id < b.id end)
+    return list
+end
+
+local function saveUsers(o)
+    MySQL.update('UPDATE m1_counterfeit_objects SET users = ? WHERE id = ?', { json.encode(o.users), o.id })
+end
+
+st.callback.register('mach1ne_counterfeit:accessList', function(src, laptopId)
+    local list, err = ownedNear(src, laptopId)
+    if not list then return false, err end
+    local out = {}
+    for _, o in ipairs(list) do
+        local users = {}
+        for identifier, name in pairs(o.users) do users[#users + 1] = { identifier = identifier, name = name } end
+        table.sort(users, function(a, b) return a.name < b.name end)
+        out[#out + 1] = { id = o.id, type = o.type, users = users }
+    end
+    return true, out
+end)
+
+-- machineId = nil: tilføj til alle ejerens maskiner ved laptoppen
+st.callback.register('mach1ne_counterfeit:accessAdd', function(src, laptopId, target, machineId)
+    local list, err = ownedNear(src, laptopId)
+    if not list then return false, err end
+    local xTarget = ESX.GetPlayerFromId(tonumber(target) or -1)
+    if not xTarget then return false, locale('access_no_player') end
+    if xTarget.identifier == getIdentifier(src) then return false, locale('access_self') end
+    local name, n = xTarget.getName(), 0
+    for _, o in ipairs(list) do
+        if not machineId or o.id == tonumber(machineId) then
+            o.users[xTarget.identifier] = name
+            saveUsers(o)
+            n = n + 1
+        end
+    end
+    if n == 0 then return false, locale('laptop_none_owned') end
+    log(src, ('gav %s (%s) adgang til %d maskine(r)'):format(name, xTarget.identifier, n))
+    return true, name, n
+end)
+
+st.callback.register('mach1ne_counterfeit:accessRemove', function(src, laptopId, machineId, identifier)
+    local list, err = ownedNear(src, laptopId)
+    if not list then return false, err end
+    for _, o in ipairs(list) do
+        if o.id == tonumber(machineId) and o.users[identifier] then
+            log(src, ('fjernede %s fra %s #%d'):format(o.users[identifier], o.type, o.id))
+            o.users[identifier] = nil
+            saveUsers(o)
+            return true
+        end
+    end
+    return false, locale('err_gone')
 end)
 
 -- ===================== Pak sammen / beslaglæg =====================
