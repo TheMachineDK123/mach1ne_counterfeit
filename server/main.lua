@@ -53,6 +53,17 @@ CreateThread(function()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ]])
 
+    -- Trykplader: hvem der ejer hvilket serieprefiks, og om politiet har beslaglagt pladen
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS `m1_counterfeit_plates` (
+            `prefix`     VARCHAR(4)  NOT NULL,
+            `owner`      VARCHAR(60) NOT NULL,
+            `seized`     TINYINT     NOT NULL DEFAULT 0,
+            `created_at` BIGINT      NOT NULL DEFAULT 0,
+            PRIMARY KEY (`prefix`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ]])
+
     -- Materialer til spillere, der loggede ud midt i arbejdet (udbetales næste gang de logger ind)
     MySQL.query.await([[
         CREATE TABLE IF NOT EXISTS `m1_counterfeit_refunds` (
@@ -170,24 +181,63 @@ local function canCarryAll(src, list)
     return true
 end
 
-local function possibleBatches(src, def)
+-- Serieprefikset (fra trykpladen) følger arkene og sedlerne som metadata gennem hele kæden.
+local function prefixMeta(prefix)
+    return prefix and { prefix = prefix, description = locale('prefix_desc', prefix) } or nil
+end
+
+-- Den prefiks-gruppe af et item, spilleren har flest af. false = items uden prefiks (lavet før pladerne).
+local function pickPrefix(src, item)
+    local groups, best, bestN = {}, false, 0
+    for _, slot in pairs(ox:Search(src, 'slots', item) or {}) do
+        local p = slot.metadata and slot.metadata.prefix or false
+        groups[p] = (groups[p] or 0) + slot.count
+        if groups[p] > bestN then best, bestN = p, groups[p] end
+    end
+    return best, groups
+end
+
+local function possibleBatches(src, def, prefix, groups)
     local n = def.maxBatches
     for item, amount in pairs(def.input) do
-        n = math.min(n, math.floor(ox:GetItemCount(src, item) / amount))
+        local have = (def.carry == item and groups) and (groups[prefix or false] or 0) or ox:GetItemCount(src, item)
+        n = math.min(n, math.floor(have / amount))
     end
     return n
 end
 
-local function takeInput(src, def, batches)
+local function takeInput(src, def, batches, prefix)
     local taken = {}
     for item, amount in pairs(def.input) do
-        if not ox:RemoveItem(src, item, amount * batches) then
-            for it, n in pairs(taken) do ox:AddItem(src, it, n) end   -- rul tilbage
+        -- shortcut: items uden prefiks (prefix = false) fjernes uden metadata-filter og kan tage prefiks-items med,
+        -- hvis spilleren har begge slags. Kun relevant for gamle items fra før trykpladerne.
+        local meta = def.carry == item and prefix and { prefix = prefix } or nil
+        if not ox:RemoveItem(src, item, amount * batches, meta, nil, nil, false) then
+            for _, t in ipairs(taken) do ox:AddItem(src, t[1], t[2], t[3]) end   -- rul tilbage
             return false
         end
-        taken[item] = amount * batches
+        taken[#taken + 1] = { item, amount * batches, meta and prefixMeta(prefix) or nil }
     end
     return true
+end
+
+-- Find en trykplade med slag tilbage. Returnerer slot og metadata.
+local function findPlate(src)
+    for _, slot in pairs(ox:Search(src, 'slots', Config.Items.plate) or {}) do
+        if slot.metadata and slot.metadata.prefix and (slot.metadata.uses or 0) > 0 then return slot end
+    end
+end
+
+local function wearPlate(src, slot, used)
+    local meta = slot.metadata
+    meta.uses = (meta.uses or 0) - used
+    if meta.uses <= 0 then
+        ox:RemoveItem(src, Config.Items.plate, 1, nil, slot.slot)
+        TriggerClientEvent('mach1ne_counterfeit:notify', src, locale('plate_worn', meta.prefix), 'warning')
+    else
+        meta.description = locale('plate_desc', meta.prefix, meta.uses)
+        ox:SetMetadata(src, slot.slot, meta)
+    end
 end
 
 local function policeAlert(pos, message)
@@ -288,12 +338,22 @@ st.callback.register('mach1ne_counterfeit:fill', function(src, id)
     if not def or def.mode ~= 'timed' then return false, locale('err_unknown_machine') end
     if Util.stationState(o.data, now()) ~= 'empty' then return false, locale('err_busy') end
 
-    local batches = possibleBatches(src, def)
+    local prefix, groups, plate
+    if def.plate then
+        plate = findPlate(src)
+        if not plate then return false, locale('err_no_plate') end
+        prefix = plate.metadata.prefix
+    elseif def.carry then
+        prefix, groups = pickPrefix(src, def.carry)
+    end
+    local batches = possibleBatches(src, def, prefix, groups)
+    if plate then batches = math.min(batches, plate.metadata.uses) end
     if batches < 1 then return false, locale('err_materials') end
-    if not takeInput(src, def, batches) then return false, locale('err_materials') end
+    if not takeInput(src, def, batches, prefix) then return false, locale('err_materials') end
+    if plate then wearPlate(src, plate, batches) end
 
     local t = now()
-    o.data = { station = o.type, batches = batches, started = t, done = t + def.minutes * 60 }
+    o.data = { station = o.type, batches = batches, started = t, done = t + def.minutes * 60, prefix = prefix or nil }
     changed(o)
     log(src, ('startede %s #%d med %d portion(er)'):format(o.type, o.id, batches))
     return true, batches
@@ -315,12 +375,13 @@ st.callback.register('mach1ne_counterfeit:collect', function(src, id)
     end
     if not canCarryAll(src, out) then return false, locale('err_carry_all') end
 
+    local prefix = o.data.prefix
     o.data = { station = o.type, batches = 0 }
     changed(o)
 
     local got, give = 0, {}
     for item, count in pairs(out) do
-        give[#give + 1] = { item, count }
+        give[#give + 1] = { item, count, prefixMeta(prefix) }
         got = got + count
     end
     giveOrDrop(src, give)
@@ -355,33 +416,53 @@ end)
 
 local SERIAL_CHARS = 'ABCDEFGHJKLMNPRSTUVWXYZ'
 
-local function newSerial()
+local function newSerial(prefix)
+    prefix = prefix or 'LS'
     for _ = 1, 20 do
         local i = math.random(#SERIAL_CHARS)
-        local s = ('LS %05d%s'):format(math.random(0, 99999), SERIAL_CHARS:sub(i, i))
+        local s = ('%s %05d%s'):format(prefix, math.random(0, 99999), SERIAL_CHARS:sub(i, i))
         if not MySQL.scalar.await('SELECT 1 FROM m1_counterfeit_serials WHERE serial = ?', { s }) then return s end
     end
-    return ('LS %d'):format(now())
+    return ('%s %d'):format(prefix, now() % 100000000)
 end
 
-st.callback.register('mach1ne_counterfeit:startWork', function(src, id)
+-- Gyldigt prefiks til en ny trykplade: 2 store bogstaver, ikke reserveret, ikke ejet af en anden.
+local function checkPrefix(prefix, identifier)
+    prefix = type(prefix) == 'string' and prefix:upper() or ''
+    if not prefix:match('^%u%u$') or Config.Plate.reserved[prefix] then return nil, locale('err_prefix_invalid') end
+    local owner = MySQL.scalar.await('SELECT owner FROM m1_counterfeit_plates WHERE prefix = ?', { prefix })
+    if owner and owner ~= identifier then return nil, locale('err_prefix_taken') end
+    return prefix
+end
+
+st.callback.register('mach1ne_counterfeit:startWork', function(src, id, wantPrefix)
     local o, err = getObj(src, id, 'station')
     if not o then return false, err end
     local def = Config.Stations[o.type]
     if not def or def.mode ~= 'active' then return false, locale('err_unknown_machine') end
     if Work[o.id] or Util.stationState(o.data, now()) == 'active' then return false, locale('err_in_use') end
 
-    local batches = possibleBatches(src, def)
+    local identifier = getIdentifier(src)
+    local prefix, groups
+    if def.engraver then
+        local reason
+        prefix, reason = checkPrefix(wantPrefix, identifier)
+        if not prefix then return false, reason end
+    elseif def.carry then
+        prefix, groups = pickPrefix(src, def.carry)
+    end
+
+    local batches = possibleBatches(src, def, prefix, groups)
     if batches < 1 then return false, locale('err_materials') end
 
     local out = {}
     for item, amount in pairs(def.output) do out[item] = amount * batches end
     if not canCarryAll(src, out) then return false, locale('err_carry_all') end
-    if not takeInput(src, def, batches) then return false, locale('err_materials') end
+    if not takeInput(src, def, batches, not def.engraver and prefix or nil) then return false, locale('err_materials') end
 
     local duration = math.ceil(def.seconds * batches)
-    Work[o.id] = { src = src, identifier = getIdentifier(src), batches = batches, finishAt = now() + duration - 1,
-                   startMs = GetGameTimer() }
+    Work[o.id] = { src = src, identifier = identifier, batches = batches, finishAt = now() + duration - 1,
+                   startMs = GetGameTimer(), prefix = prefix or nil }
     o.data = { station = o.type, activeUntil = now() + duration, batches = batches, duration = duration }
     TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data, 0)
     return true, batches, duration * 1000
@@ -396,31 +477,34 @@ RegisterNetEvent('mach1ne_counterfeit:animStart', function(id)
     TriggerClientEvent('mach1ne_counterfeit:animSync', -1, tonumber(id), 0)
 end)
 
-local function inputItems(def, batches)
+local function inputItems(def, batches, prefix)
     local list = {}
-    for item, amount in pairs(def.input) do list[#list + 1] = { item, amount * batches } end
+    for item, amount in pairs(def.input) do
+        list[#list + 1] = { item, amount * batches, def.carry == item and prefixMeta(prefix) or nil }
+    end
     return list
 end
 
-local function refund(src, def, batches)
-    giveOrDrop(src, inputItems(def, batches))
+local function refund(src, def, batches, prefix)
+    giveOrDrop(src, inputItems(def, batches, prefix))
 end
 
 -- Spilleren er ikke online: gem materialerne og giv dem ved næste login.
-local function queueRefund(identifier, def, batches)
+local function queueRefund(identifier, def, batches, prefix)
     if not identifier then return end
     MySQL.insert('INSERT INTO m1_counterfeit_refunds (identifier, items, created_at) VALUES (?, ?, ?)',
-        { identifier, json.encode(inputItems(def, batches)), now() })
+        { identifier, json.encode(inputItems(def, batches, prefix)), now() })
 end
 
 -- Afbryd en igangværende opgave og lås maskinen op igen.
 local function endWork(o, w, how)
     Work[o.id] = nil
     local def = Config.Stations[o.type]
+    local carried = not def.engraver and w.prefix or nil
     if how == 'refund' then
-        refund(w.src, def, w.batches)
+        refund(w.src, def, w.batches, carried)
     elseif how == 'queue' then
-        queueRefund(w.identifier, def, w.batches)
+        queueRefund(w.identifier, def, w.batches, carried)
     end
     o.data = { station = o.type }
     TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
@@ -447,8 +531,22 @@ st.callback.register('mach1ne_counterfeit:finishWork', function(src, id)
     Work[o.id] = nil
 
     local serial
-    if o.type == 'cf_counter' then
-        serial = newSerial()
+    if def.engraver then
+        -- ny trykplade: prefikset registreres på spilleren (en anden kan have taget det imens)
+        local prefix = checkPrefix(w.prefix, w.identifier)
+        if not prefix then
+            refund(src, def, w.batches)
+            o.data = { station = o.type }
+            changed(o)
+            return false, locale('err_prefix_taken')
+        end
+        MySQL.insert.await('INSERT INTO m1_counterfeit_plates (prefix, owner, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE seized = 0',
+            { prefix, w.identifier, now() })
+        giveOrDrop(src, { { Config.Items.plate, w.batches, {
+            prefix = prefix, uses = Config.Plate.uses, description = locale('plate_desc', prefix, Config.Plate.uses),
+        } } })
+    elseif o.type == 'cf_counter' then
+        serial = newSerial(w.prefix)
         local B = Config.Bundle
         giveOrDrop(src, { { Config.Items.bundle, w.batches, {
             serial = serial, value = B.value,
@@ -458,7 +556,7 @@ st.callback.register('mach1ne_counterfeit:finishWork', function(src, id)
             { serial, o.id, w.identifier, w.batches, o.pos.x, o.pos.y, o.pos.z, now() })
     else
         local give = {}
-        for item, amount in pairs(def.output) do give[#give + 1] = { item, amount * w.batches } end
+        for item, amount in pairs(def.output) do give[#give + 1] = { item, amount * w.batches, prefixMeta(w.prefix) } end
         giveOrDrop(src, give)
     end
 
@@ -557,7 +655,17 @@ local function scanInventory(src)
         end
         bySerial[serial].count = bySerial[serial].count + slot.count
     end
+    local plates = {}
     if police then
+        -- Trykplader politiet har på sig, bliver registreret som beslaglagt. Så kan alle sedler med det
+        -- prefiks kobles til pladens ejer.
+        for _, slot in pairs(ox:Search(src, 'slots', Config.Items.plate) or {}) do
+            local p = slot.metadata and slot.metadata.prefix
+            if p then
+                MySQL.update.await('UPDATE m1_counterfeit_plates SET seized = 1 WHERE prefix = ?', { p })
+                plates[#plates + 1] = p
+            end
+        end
         for _, e in ipairs(list) do
             local row = MySQL.single.await('SELECT counter_id, amount, x, y, z, created_at FROM m1_counterfeit_serials WHERE serial = ?', { e.serial })
             if row then
@@ -566,9 +674,14 @@ local function scanInventory(src)
                 e.pos = { x = row.x, y = row.y, z = row.z }
                 e.active = Objects[row.counter_id] ~= nil
             end
+            local prefix = e.serial:match('^(%u+) ')
+            local plate = prefix and MySQL.single.await(
+                'SELECT u.firstname, u.lastname FROM m1_counterfeit_plates p LEFT JOIN users u ON u.identifier = p.owner WHERE p.prefix = ? AND p.seized = 1',
+                { prefix })
+            if plate then e.plateOwner = ('%s %s'):format(plate.firstname or '?', plate.lastname or '') end
         end
     end
-    return list, police
+    return list, police, plates
 end
 
 -- Håndscanner (item)
@@ -581,7 +694,7 @@ st.callback.register('mach1ne_counterfeit:scanDesk', function(src, id)
     if not isPolice(src) then return false, locale('err_police_only') end
     local o, err = getObj(src, id, 'prop')
     if not o or not (Config.Props[o.type] and Config.Props[o.type].screen == 'uv') then return false, err end
-    local list = scanInventory(src)
+    local list, _, plates = scanInventory(src)
     local total, first = 0, list[1]
     for _, e in ipairs(list) do total = total + e.count end
     local screen = {
@@ -592,7 +705,7 @@ st.callback.register('mach1ne_counterfeit:scanDesk', function(src, id)
     o.data.scan = screen
     TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
     log(src, ('scannede %d bundt(er) ved UV-scanner #%d'):format(total, o.id))
-    return true, list
+    return true, list, plates
 end)
 
 -- ===================== Hæler =====================
@@ -680,3 +793,61 @@ st.callback.register('mach1ne_counterfeit:sell', function(src, amount)
     log(src, ('solgte %d bundt(er) til hæleren for %d'):format(amount, pay))
     return true, pay
 end)
+
+-- ===================== Kurer =====================
+-- Hæleren giver en leveringsopgave: N bundter til et tilfældigt sted inden for X minutter.
+
+local Courier, lastCourier = {}, {}   -- [src] = { point, bundles, expires }; [identifier] = tid
+
+st.callback.register('mach1ne_counterfeit:courierStart', function(src)
+    local C = Config.Courier
+    if not C.enabled then return false end
+    if not dealerNear(src) then return false, locale('err_too_far') end
+    if Courier[src] then return false, locale('courier_busy') end
+    local identifier = getIdentifier(src)
+    local wait = (lastCourier[identifier] or 0) + C.cooldownMinutes * 60 - now()
+    if wait > 0 then return false, locale('courier_cooldown', math.ceil(wait / 60)) end
+
+    local idx = math.random(#C.points)
+    local job = { point = idx, bundles = math.random(C.bundles.min, C.bundles.max), expires = now() + C.minutes * 60 }
+    Courier[src], lastCourier[identifier] = job, now()
+    if math.random(100) <= C.tipChance then
+        local p = C.points[idx]
+        SetTimeout(C.tipDelay * 1000, function()
+            if Courier[src] == job then policeAlert({ x = p.x, y = p.y, z = p.z }, locale('courier_tip')) end
+        end)
+    end
+    log(src, ('tog en kurer-opgave: %d bundter til punkt %d'):format(job.bundles, idx))
+    return true, idx, job.bundles, C.minutes
+end)
+
+st.callback.register('mach1ne_counterfeit:courierDeliver', function(src)
+    local C, job = Config.Courier, Courier[src]
+    if not job then return false, locale('courier_none') end
+    if now() > job.expires then
+        Courier[src] = nil
+        return false, locale('courier_expired')
+    end
+    local p = C.points[job.point]
+    if #(playerPos(src) - vec3(p.x, p.y, p.z)) > 5.0 then return false, locale('err_too_far') end
+    if ox:GetItemCount(src, Config.Items.bundle) < job.bundles then
+        return false, locale('courier_missing', job.bundles)
+    end
+    local xPlayer = ESX.GetPlayerFromId(src)
+    if not xPlayer or not ox:RemoveItem(src, Config.Items.bundle, job.bundles) then return false, locale('err_failed') end
+    local S = Config.Dealer.sell
+    local pay = math.floor(Config.Bundle.value * Rate.value * C.bonus * job.bundles)
+    xPlayer.addAccountMoney(S.account, pay)
+    Rate.value = math.max(S.minRate, Rate.value - S.dropPerBundle * job.bundles)
+    publishRate()
+    Courier[src] = nil
+    log(src, ('leverede %d bundter som kurer for %d'):format(job.bundles, pay))
+    return true, pay, job.bundles
+end)
+
+st.callback.register('mach1ne_counterfeit:courierCancel', function(src)
+    Courier[src] = nil
+    return true
+end)
+
+AddEventHandler('playerDropped', function() Courier[source] = nil end)

@@ -278,9 +278,10 @@ function CF.scanDesk(id)
     })
     CF.busy = false
     if not done then return end
-    local ok, list = st.callback.await('mach1ne_counterfeit:scanDesk', 500, id)
+    local ok, list, plates = st.callback.await('mach1ne_counterfeit:scanDesk', 500, id)
     if not ok then return CF.notify(list or locale('err_failed'), 'error') end
     CF.showScanResults(list, true)
+    CF.notifyPlates(plates)
 end
 
 AddEventHandler('onResourceStop', function(resource)

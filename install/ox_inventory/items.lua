@@ -72,6 +72,21 @@
 		description = 'Viser status for maskinerne i dit værksted',
 		client = { image = 'm1f_cf_laptop.png', export = 'mach1ne_counterfeit.useProp' },
 	},
+	['cf_engraver'] = {
+		label = 'Graverbord', weight = 9000, stack = true, close = true, consume = 0,
+		description = 'Graverer trykplader med dit eget serie-prefiks. Stil det på et bord',
+		client = { image = 'm1f_cf_engraver.png', export = 'mach1ne_counterfeit.useStation' },
+	},
+	['cf_plate_blank'] = {
+		label = 'Kobberplade', weight = 400, stack = true,
+		description = 'Blank plade - graveres på graverbordet',
+		client = { image = 'm1f_cf_plate_blank.png' },
+	},
+	['cf_plate'] = {
+		label = 'Trykplade', weight = 400, stack = false,
+		description = 'Graveret trykplade til trykpressen',
+		client = { image = 'm1f_cf_plate.png' },
+	},
 	['cf_priceboard'] = {
 		label = 'Kursskærm', weight = 12000, stack = true, close = true, consume = 0,
 		description = 'Viser hvad hæleren betaler for et bundt lige nu. Stil den op hvor du vil',

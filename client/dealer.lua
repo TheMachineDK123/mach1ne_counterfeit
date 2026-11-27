@@ -45,6 +45,9 @@ local function openShop()
             onSelect = sell,
         },
     }
+    if Config.Courier.enabled then
+        options[#options + 1] = CF.courierOption()
+    end
     for _, entry in ipairs(D.items) do
         options[#options + 1] = {
             title = entry.label,

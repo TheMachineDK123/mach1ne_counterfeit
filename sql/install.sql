@@ -37,3 +37,12 @@ CREATE TABLE IF NOT EXISTS `m1_counterfeit_refunds` (
     PRIMARY KEY (`id`),
     KEY `idx_identifier` (`identifier`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Trykplader: hvem der ejer hvilket serie-prefiks, og om politiet har beslaglagt pladen
+CREATE TABLE IF NOT EXISTS `m1_counterfeit_plates` (
+    `prefix`     VARCHAR(4)  NOT NULL,
+    `owner`      VARCHAR(60) NOT NULL,
+    `seized`     TINYINT     NOT NULL DEFAULT 0,
+    `created_at` BIGINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (`prefix`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

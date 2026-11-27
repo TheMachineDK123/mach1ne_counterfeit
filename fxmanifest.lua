@@ -20,6 +20,7 @@ client_scripts {
     'client/screens.lua',
     'client/place.lua',
     'client/dealer.lua',
+    'client/courier.lua',
 }
 
 server_scripts {

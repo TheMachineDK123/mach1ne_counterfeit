@@ -486,7 +486,20 @@ function CF.work(id)
         return
     end
 
-    local ok, batches, duration = st.callback.await('mach1ne_counterfeit:startWork', 500, id)
+    local prefix
+    if def.engraver then
+        local input = lib.inputDialog(locale('engrave_title'), {
+            { type = 'input', label = locale('engrave_prefix'), description = locale('engrave_prefix_desc'),
+              required = true, min = 2, max = 2 },
+        })
+        prefix = input and input[1] and input[1]:upper()
+        if not prefix then
+            CF.busy = false
+            return
+        end
+    end
+
+    local ok, batches, duration = st.callback.await('mach1ne_counterfeit:startWork', 500, id, prefix)
     if not ok then
         CF.busy = false
         return CF.notify(batches or locale('err_failed'), 'error')
@@ -510,7 +523,9 @@ function CF.work(id)
 
     local fin, n, serial = st.callback.await('mach1ne_counterfeit:finishWork', 500, id)
     if not fin then return CF.notify(n or locale('err_failed'), 'error') end
-    if serial then
+    if def.engraver then
+        CF.notify(locale('plate_ready', prefix, Config.Plate.uses), 'success')
+    elseif serial then
         CF.notify(locale(n == 1 and 'bundles_ready_one' or 'bundles_ready_other', n, serial), 'success')
     else
         local out = {}
@@ -538,6 +553,10 @@ local function zoneLabel(pos)
     return street ~= '' and ('%s, %s'):format(street, zone) or zone
 end
 
+function CF.notifyPlates(plates)
+    for _, p in ipairs(plates or {}) do CF.notify(locale('plate_seized', p), 'success') end
+end
+
 -- Viser scanningsresultatet (bruges af håndscanneren og politiets scanner-bord).
 function CF.showScanResults(list, police)
     if not list or #list == 0 then return CF.notify(locale('scan_none'), 'inform') end
@@ -548,6 +567,7 @@ function CF.showScanResults(list, police)
         if police and e.created then
             desc = locale('scan_origin', desc, e.createdText or '?', e.counterId,
                 e.active and locale('scan_still_placed') or locale('scan_removed'))
+            if e.plateOwner then desc = desc .. '\n' .. locale('scan_plate_owner', e.plateOwner) end
             meta = { { label = locale('scan_area'), value = zoneLabel(e.pos) },
                      { label = locale('scan_batch'), value = locale('scan_batch_value', e.batch or 0) } }
         end
@@ -571,8 +591,9 @@ exports('useScanner', function()
     ClearPedTasks(PlayerPedId())
     CF.busy = false
     if not done then return end
-    local list, police = st.callback.await('mach1ne_counterfeit:scan', 500)
+    local list, police, plates = st.callback.await('mach1ne_counterfeit:scan', 500)
     CF.showScanResults(list, police)
+    CF.notifyPlates(plates)
 end)
 
 AddEventHandler('onResourceStop', function(resource)

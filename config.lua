@@ -5,7 +5,7 @@ Config.Locale = 'da'   -- sprogfil i locales/ (da, en). Labels på maskiner og i
 -- Hvordan man interagerer med maskiner, laptop, scanner og hæler:
 --   'ox_target' = sigt på tingene med ox_target (kræver ox_target)
 --   'st_libs'   = 3D-tekst med tastetryk (E / G / H) fra st_libs
-Config.Interaction = 'ox_target'
+Config.Interaction = 'st_libs'
 
 -- ============================================================
 -- ITEMS (registreret i ox_inventory/data/items.lua)
@@ -19,6 +19,16 @@ Config.Items = {
     band     = 'cf_band',        -- banderoler
     bundle   = 'cf_bundle',      -- bundt falske sedler (metadata: serie)
     scanner  = 'cf_scanner',     -- UV-seddelscanner
+    plate    = 'cf_plate',       -- graveret trykplade (metadata: prefix, uses)
+    plateBlank = 'cf_plate_blank', -- blank kobberplade
+}
+
+-- Trykplader: laves på graverbordet med et prefiks på 2 bogstaver, som står foran serienummeret
+-- (fx "AB 04821K"). Pladen slides: 'uses' = antal portioner i trykpressen. Politiet kan koble alle sedler
+-- med et prefiks til pladens ejer, når de har beslaglagt pladen og scannet den med UV-scanneren.
+Config.Plate = {
+    uses     = 20,
+    reserved = { LS = true },   -- prefikser der ikke må bruges (LS = sedler lavet uden plade)
 }
 
 -- Et bundt = så mange løse sedler. 'value' = pålydende (bruges af hæleren og vises i inventaret).
@@ -38,6 +48,7 @@ Config.Stations = {
     cf_press = {
         label       = 'Trykpresse',
         mode        = 'timed',
+        plate       = true,                           -- kræver en trykplade (cf_plate) i inventaret
         input       = { cf_paper = 2, cf_ink = 1 },
         output      = { cf_sheet_wet = 2 },
         maxBatches  = 5,
@@ -59,6 +70,7 @@ Config.Stations = {
     cf_dryline = {
         label       = 'Tørresnor',
         mode        = 'timed',
+        carry       = 'cf_sheet_wet',                 -- prefikset følger arkene videre
         input       = { cf_sheet_wet = 2 },
         output      = { cf_sheet = 2 },
         maxBatches  = 5,
@@ -77,6 +89,7 @@ Config.Stations = {
     cf_cutter = {
         label       = 'Skæremaskine',
         mode        = 'active',
+        carry       = 'cf_sheet',
         input       = { cf_sheet = 1 },
         output      = { cf_bills = 8 },
         maxBatches  = 6,
@@ -95,6 +108,7 @@ Config.Stations = {
     cf_counter = {
         label       = 'Sedeltæller',
         mode        = 'active',
+        carry       = 'cf_bills',
         input       = { cf_bills = 25, cf_band = 1 },  -- holdes i sync med Config.Bundle.bills
         output      = { cf_bundle = 1 },
         maxBatches  = 8,
@@ -107,6 +121,24 @@ Config.Stations = {
         models = {
             empty  = { 'm1_cf_counter',     'bkr_prop_money_counter' },
             active = { 'm1_cf_counter_run', 'bkr_prop_money_counter' },
+        },
+    },
+    cf_engraver = {
+        label       = 'Graverbord',
+        mode        = 'active',
+        engraver    = true,                           -- spilleren vælger prefikset, output er en trykplade
+        input       = { cf_plate_blank = 1 },
+        output      = { cf_plate = 1 },
+        maxBatches  = 1,
+        seconds     = 20.0,
+        workText    = 'Graverer trykpladen...',
+        uiHeight    = 0.35,
+        -- shortcut: genbruger sedeltællerens ped-animation (samme bordhøjde), lav en 'engrave' i pedanim.py hvis hænderne skal passe præcist
+        work = { offset = vec3(0.0, -0.55, 0.0), clip = 'count' },
+        anim = { active = 'engrave_run' },
+        models = {
+            empty  = { 'm1_cf_engraver',     'prop_tool_bench02' },
+            active = { 'm1_cf_engraver_run', 'prop_tool_bench02' },
         },
     },
 }
@@ -239,6 +271,35 @@ Config.Dealer = {
         { name = 'cf_table',   label = 'Arbejdsbord',       price = 1500 },
         { name = 'cf_laptop',  label = 'Laptop',            price = 2500 },
         { name = 'cf_priceboard', label = 'Kursskærm',      price = 3500 },
+        { name = 'cf_engraver', label = 'Graverbord',       price = 8000 },
+        { name = 'cf_plate_blank', label = 'Kobberplade',   price = 800 },
+    },
+}
+
+-- ============================================================
+-- KURER: hæleren giver leveringsopgaver
+-- ============================================================
+-- Tag en opgave hos hæleren, kør bundterne ud til en køber inden tiden løber ud og få bedre betaling
+-- end ved disken. Der er en chance for, at politiet får et tip om afleveringsstedet.
+Config.Courier = {
+    enabled         = true,
+    bundles         = { min = 5, max = 12 },
+    minutes         = 15,
+    bonus           = 1.25,          -- gange hælerens aktuelle kurs
+    tipChance       = 25,            -- % chance for at politiet får et tip
+    tipDelay        = 60,            -- sekunder efter opgaven er taget
+    cooldownMinutes = 20,
+    pedModel        = 'g_m_y_mexgoon_02',
+    -- Afleveringssteder (fra elevate-oxyRun). Ret frit.
+    points = {
+        vector4(196.76, -2231.34, 5.95, 92.24),
+        vector4(1072.23, -787.65, 58.26, 175.74),
+        vector4(1222.27, -487.97, 66.94, 257.27),
+        vector4(-1031.66, -1524.87, 5.19, 121.87),
+        vector4(-990.05, -1438.62, 5.05, 115.18),
+        vector4(-557.05, 426.43, 99.04, 312.93),
+        vector4(902.44, -87.31, 78.76, 61.88),
+        vector4(590.15, -2226.13, 5.99, 166.49),
     },
 }
 

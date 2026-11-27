@@ -20,6 +20,8 @@
 
 - [Sådan laver du pengene](#sådan-laver-du-pengene)
 - [Installation](#installation)
+- [Trykplader](#trykplader)
+- [Kurer-opgaver](#kurer-opgaver)
 - [Styring](#styring)
 - [Skærmene](#skærmene)
 - [Politiet](#politiet)
@@ -30,7 +32,8 @@
 
 | Trin | Maskine | Du skal bruge | Du får | Tid |
 | :-: | --- | --- | --- | --- |
-| 1 | **Trykpresse** | 2 bomuldspapir + 1 blæk | 2 våde ark | 6 min |
+| 0 | **Graverbord** | 1 kobberplade | 1 trykplade med dit eget prefiks | 20 sek |
+| 1 | **Trykpresse** | 2 bomuldspapir + 1 blæk + en trykplade | 2 våde ark | 6 min |
 | 2 | **Tørresnor** | 2 våde ark | 2 tørre ark | 8 min |
 | 3 | **Skæremaskine** | 1 tørt ark | 8 sedler | 5 sek |
 | 4 | **Sedeltæller** | 25 sedler + 1 papirbånd | 1 bundt | 4 sek |
@@ -41,6 +44,27 @@ Har du materialer nok, kan du lave flere ad gangen. Alle tal kan ændres i `conf
 > **Trykpressen og tørresnoren** passer sig selv. Fyld dem, gå din vej, og kom tilbage, når de er færdige. Men glem ikke de våde ark i pressen for længe, for så klistrer halvdelen sammen.
 >
 > **Ved skæremaskinen og sedeltælleren** skal du blive stående, mens de arbejder. Går du, får du dine ting tilbage.
+
+## Trykplader
+
+Før du kan trykke, skal du have en trykplade. Den laver du på **graverbordet** (stil det på et bord) ud fra en kobberplade fra hæleren.
+
+- Du vælger selv et **prefiks på 2 bogstaver**, fx `AB`. Det står foran serienummeret på alle dine sedler: `AB 04821K`.
+- Et prefiks tilhører den, der lavede det første gang. Andre kan ikke bruge det.
+- Pladen **slides**: den kan bruges til 20 portioner i trykpressen (`Config.Plate.uses`), og så er den væk.
+- Prefikset følger arkene og sedlerne hele vejen igennem til bundtet.
+
+> [!WARNING]
+> Pas på din plade. Får politiet fat i den og scanner den med UV-scanneren, kan de se, hvem der ejer den. Så viser deres scanner ejerens navn på **alle** bundter med dit prefiks.
+
+## Kurer-opgaver
+
+Hos hæleren kan du tage en **leveringsopgave**: kør et antal bundter ud til en køber på kortet inden for 15 minutter.
+
+- Du får **25 % mere** end hæleren betaler ved disken.
+- Der er en chance på 25 % for, at politiet får et anonymt tip om stedet.
+- Kommer du for sent, er køberen gået. Du kan tage en ny opgave hvert 20. minut.
+- Alt kan justeres under `Config.Courier`, også afleveringsstederne.
 
 ## Installation
 
@@ -84,6 +108,7 @@ Med ox_target sigter du bare på tingen og vælger i menuen. Med 3D-tekst bruger
 | Trykpresse og tørresnor | Fyld, se tid eller tøm | Pak sammen (skal være tom) | Beslaglæg |
 | Skæremaskine og sedeltæller | Gå i gang | Pak sammen | Beslaglæg |
 | Arbejdsbord | | Pak sammen | Beslaglæg |
+| Graverbord | Gravér en trykplade | Pak sammen | Beslaglæg |
 | Laptop | Se dine maskiner | Pak sammen | Beslaglæg |
 | UV-scanner (bord) | Scan bundter (kun politi) | Pak sammen | |
 | Kursskærm | Se kursen | Pak sammen | Beslaglæg |
@@ -126,6 +151,8 @@ Alt kan ændres i [`config.lua`](config.lua):
 | `Config.Screens` | Slå skærmene til og fra, og hvor tæt på man skal være |
 | `Config.Stations` | Hvad maskinerne skal bruge, hvad de giver, og hvor lang tid det tager |
 | `Config.Bundle` | Hvor mange sedler der er i et bundt, og hvad det er værd |
+| `Config.Plate` | Hvor mange portioner en trykplade holder, og hvilke prefikser der ikke må bruges |
+| `Config.Courier` | Kurer-opgaver: antal bundter, tid, bonus, chancen for tip og afleveringssteder |
 | `Config.Noise` | Hvor tit naboerne ringer |
 | `Config.Police` | Hvilke jobs der tæller som politi |
 | `Config.Dealer` | Hvor hæleren står, hvad han sælger, hvordan prisen svinger, og om der skal stå en fast kursskærm ved ham |
