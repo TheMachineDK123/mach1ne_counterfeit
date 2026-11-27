@@ -20,6 +20,7 @@
 
 - [Sådan laver du pengene](#sådan-laver-du-pengene)
 - [Installation](#installation)
+- [Andre scripts](#andre-scripts)
 - [Trykplader](#trykplader)
 - [Kurer-opgaver](#kurer-opgaver)
 - [Trykpressen fra Union-heistet](#trykpressen-fra-union-heistet)
@@ -71,9 +72,9 @@ Hos hæleren kan du tage en **leveringsopgave**: kør et antal bundter ud til en
 
 ## Trykpressen fra Union-heistet
 
-Trykpressen kan ikke købes. Den står inde i boksen i **Union Depository** og kan kun afmonteres, mens boksen er åben under heistet (`mani-unheist`). Der er én presse pr. server-genstart, ligesom pengevognene i heistet.
+Trykpressen kan ikke købes. Den står inde i boksen i **Union Depository** og kan kun afmonteres, mens boksen er åben under heistet **[machine_unheist](https://github.com/TheMachineDK123/machine_unheist)**. Der er én presse pr. server-genstart, ligesom pengevognene i heistet.
 
-`mani-unheist` skal have to små exports. Kopiér de tre linjer fra [`install/mani-unheist.lua`](install/mani-unheist.lua) nederst ind i `mani-unheist/server/_state.lua`. Placeringen af pressen i boksen står i `Config.Heist.coords`.
+Heistet har allerede de to exports (`isVaultOpen` og `isCrew`), som counterfeit bruger. Sæt `Config.Heist.resource` til navnet på heist-mappen (standard `mani-unheist`). Placeringen af pressen i boksen står i `Config.Heist.coords`.
 
 ## Installation
 
@@ -215,3 +216,8 @@ Maskinerne og din figur bevæger sig i takt. Når du trækker i håndtaget, går
 Lavet af **TheMach1neDK**
 
 </div>
+
+## Andre scripts
+
+- **[machine_unheist](https://github.com/TheMachineDK123/machine_unheist)**: Union Depository-heistet, hvor trykpressen står.
+- **[mach1ne_counterfeit](https://github.com/TheMachineDK123/mach1ne_counterfeit)**: dette script.

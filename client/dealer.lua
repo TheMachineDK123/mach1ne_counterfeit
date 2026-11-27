@@ -20,13 +20,11 @@ local function spawn()
             displayDist = 8.0, interactDist = 2.5, key = 'E', keyNum = 38, onSelect = CF.openShop,
         },
     })
-    CF.spawnBoard(D.coords)
 end
 
 local function despawn()
     if not ped then return end
     Interact.clear('mach1ne_counterfeit_dealer')
-    CF.removeBoard()
     if DoesEntityExist(ped) then DeleteEntity(ped) end
     ped = nil
 end

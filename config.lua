@@ -127,7 +127,7 @@ Config.Stations = {
         label       = 'Sedeltæller',
         mode        = 'active',
         carry       = 'cf_bills',
-        input       = { cf_bills = 25, cf_band = 1 },  -- holdes i sync med Config.Bundle.bills
+        input       = { cf_band = 1 },                 -- + Config.Bundle.bills sedler (sættes efter tabellen)
         output      = { cf_bundle = 1 },
         maxBatches  = 8,
         seconds     = 4.0,                            -- pr. bundt
@@ -159,6 +159,9 @@ Config.Stations = {
         },
     },
 }
+
+-- Antal sedler pr. bundt står kun ét sted (Config.Bundle.bills)
+Config.Stations.cf_counter.input.cf_bills = Config.Bundle.bills
 
 Config.AnimDict = 'm1_cf_anims'   -- prop-animationer (stream/m1_cf_anims.ycd)
 Config.PedDict  = 'm1_cf_ped'     -- ped-animationer der matcher maskinerne (stream/m1_cf_ped.ycd)
@@ -208,7 +211,7 @@ Config.Screens = {
         hygro   = { texture = 'm1f_scr_hygro_d',  size = { 256, 128 } },   -- fugtmåleren på tørresnoren
         laptop  = { texture = 'm1f_scr_laptop_d', size = { 512, 288 }, range = 25.0 },  -- range = hvor langt laptoppen "ser" maskiner
         uv      = { texture = 'm1f_scr_uv_d',     size = { 256, 128 } },   -- politiets UV-scanner
-        board   = { texture = 'm1f_scr_board_d',  size = { 512, 288 }, distance = 25.0 },  -- kurstavlen hos hæleren
+        board   = { texture = 'm1f_scr_board_d',  size = { 512, 288 }, distance = 25.0 },  -- kursskærmen (cf_priceboard)
     },
 }
 
@@ -273,10 +276,6 @@ Config.Dealer = {
         dropPerBundle  = 0.004,    -- så meget falder kursen pr. solgt bundt
         recoverPerHour = 0.03,     -- så meget stiger den igen pr. time (mod 'rate', og lidt over i rolige perioder)
     },
-    -- Kurstavle ved hæleren (skærm med dagens kurs). offset er i forhold til hæleren.
-    -- Fast kursskærm ved hæleren. Slået fra som standard: spillerne køber selv en kursskærm (cf_priceboard)
-    -- og stiller den op, hvor de vil. Sæt enabled = true for også at have en fast skærm ved hæleren.
-    board = { enabled = false, offset = vec3(1.4, 0.4, -1.0), headingOffset = 180.0 },  -- 180 = skærmen vender samme vej som hæleren
     items = {
         { name = 'cf_paper',   label = 'Bomuldspapir',      price = 150 },
         { name = 'cf_ink',     label = 'Sikkerhedsblæk',    price = 400 },

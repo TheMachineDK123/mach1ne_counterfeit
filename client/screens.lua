@@ -4,7 +4,6 @@
 local SC = Config.Screens
 local screens = {}   -- [type] = { dui, txd, txn, last, sentAt }
 local serial = 0     -- runtime-txd'er kan ikke slettes, så hver ny DUI får sit eget navn
-local boardObj
 
 -- ===================== Status til laptop og fugtmåler =====================
 
@@ -131,12 +130,6 @@ local function nearest(me)
             if d <= max and (not best[typ] or d < best[typ].d) then best[typ] = { o = o, d = d } end
         end
     end
-    if boardObj and DoesEntityExist(boardObj) then      -- den faste skærm ved hæleren (hvis slået til)
-        local d = #(me - GetEntityCoords(boardObj))
-        if d <= (SC.types.board.distance or SC.distance) and (not best.board or d < best.board.d) then
-            best.board = { d = d }
-        end
-    end
     return best
 end
 
@@ -217,27 +210,6 @@ if SC.enabled then
     end)
 end
 
--- ===================== Kurstavlen ved hæleren =====================
-
-function CF.spawnBoard(dealerCoords)
-    local B = Config.Dealer.board
-    if not (B and B.enabled) or boardObj then return end
-    local hash = joaat('m1_cf_priceboard')
-    if not IsModelInCdimage(hash) or not pcall(st.requestModel, hash, 5000) then return end
-    local c = dealerCoords
-    local p = vec3(c.x, c.y, c.z) + Util.rotate(B.offset, c.w)
-    boardObj = CreateObjectNoOffset(hash, p.x, p.y, p.z, false, false, false)
-    SetEntityHeading(boardObj, (c.w + (B.headingOffset or 180.0)) % 360)
-    FreezeEntityPosition(boardObj, true)
-    PlaceObjectOnGroundProperly(boardObj)
-    SetModelAsNoLongerNeeded(hash)
-end
-
-function CF.removeBoard()
-    if boardObj and DoesEntityExist(boardObj) then DeleteEntity(boardObj) end
-    boardObj = nil
-end
-
 -- ===================== Laptop, UV-scanner og kursskærm (handlinger) =====================
 
 function CF.showRate()
@@ -287,5 +259,4 @@ end
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     for typ in pairs(screens) do close(typ) end
-    CF.removeBoard()
 end)

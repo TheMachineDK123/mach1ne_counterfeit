@@ -343,8 +343,21 @@ RegisterNetEvent('mach1ne_counterfeit:notify', function(message, nType)
     CF.notify(message, nType)
 end)
 
-RegisterNetEvent('mach1ne_counterfeit:bucket', function(bucket)
+-- Ny bucket (fx ind i et hus): serveren sender præcis de værksteder, der er i den.
+RegisterNetEvent('mach1ne_counterfeit:bucket', function(bucket, list)
     CF.bucket = bucket or 0
+    local keep = {}
+    for _, o in ipairs(list or {}) do
+        setT0(o, o.elapsed)
+        Objects[o.id] = o
+        keep[o.id] = true
+    end
+    for id in pairs(Objects) do
+        if not keep[id] then
+            Objects[id] = nil
+            despawn(id)
+        end
+    end
 end)
 
 RegisterNetEvent('mach1ne_counterfeit:dispatch', function(pos, message)

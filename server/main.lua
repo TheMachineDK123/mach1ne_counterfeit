@@ -112,9 +112,28 @@ local function public(o)
              elapsed = animElapsed(o) }
 end
 
+-- Hvilken routing bucket hver spiller er i (opdateres af tråden længere nede).
+local playerBucket = {}
+
+-- Send kun til spillere i samme bucket, så værksteder inde i huse ikke kan ses af alle.
+-- shortcut: alle i bucket 0 får stadig alle værksteder ude i verden, men dem kan man også se med øjnene.
+local function toBucket(bucket, event, ...)
+    for src, b in pairs(playerBucket) do
+        if b == bucket then TriggerClientEvent(event, src, ...) end
+    end
+end
+
+local function bucketList(bucket)
+    local list = {}
+    for _, o in pairs(Objects) do
+        if o.bucket == bucket then list[#list + 1] = public(o) end
+    end
+    return list
+end
+
 local function changed(o)
     MySQL.update('UPDATE m1_counterfeit_objects SET data = ? WHERE id = ?', { json.encode(o.data), o.id })
-    TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
+    toBucket(o.bucket, 'mach1ne_counterfeit:update', o.id, o.data)
 end
 
 local function getIdentifier(src)
@@ -156,10 +175,11 @@ local function tooClose(pos, bucket, dist)
 end
 
 local function deleteObj(id)
+    local o = Objects[id]
     Objects[id] = nil
     Work[id] = nil
     MySQL.query('DELETE FROM m1_counterfeit_objects WHERE id = ?', { id })
-    TriggerClientEvent('mach1ne_counterfeit:remove', -1, id)
+    if o then toBucket(o.bucket, 'mach1ne_counterfeit:remove', id) end
 end
 
 local function near(src, o, dist)
@@ -282,16 +302,16 @@ end
 
 -- ===================== Routing buckets =====================
 
-local playerBucket = {}
-
 CreateThread(function()
+    while not loaded do Wait(500) end
     while true do
         for _, s in ipairs(GetPlayers()) do
             local src = tonumber(s)
             local b = GetPlayerRoutingBucket(src)
             if playerBucket[src] ~= b then
                 playerBucket[src] = b
-                TriggerClientEvent('mach1ne_counterfeit:bucket', src, b)
+                -- ny bucket: klienten får præcis de værksteder, der er i den
+                TriggerClientEvent('mach1ne_counterfeit:bucket', src, b, bucketList(b))
             end
         end
         Wait(1500)
@@ -304,10 +324,8 @@ AddEventHandler('playerDropped', function() playerBucket[source] = nil end)
 
 st.callback.register('mach1ne_counterfeit:getAll', function(src)
     while not loaded do Wait(100) end
-    local list = {}
-    for _, o in pairs(Objects) do list[#list + 1] = public(o) end
     playerBucket[src] = GetPlayerRoutingBucket(src)
-    return list, now(), playerBucket[src]
+    return bucketList(playerBucket[src]), now(), playerBucket[src]
 end)
 
 st.callback.register('mach1ne_counterfeit:place', function(src, itemName, pos, heading)
@@ -356,7 +374,7 @@ st.callback.register('mach1ne_counterfeit:place', function(src, itemName, pos, h
     local o = { id = id, kind = kind, type = itemName, owner = identifier, bucket = bucket,
                 pos = { x = pos.x, y = pos.y, z = pos.z }, h = heading, data = data }
     Objects[id] = o
-    TriggerClientEvent('mach1ne_counterfeit:add', -1, public(o))
+    toBucket(bucket, 'mach1ne_counterfeit:add', public(o))
     log(src, ('placerede %s #%d ved %.1f, %.1f, %.1f (bucket %d)'):format(itemName, id, pos.x, pos.y, pos.z, bucket))
     return true, id
 end)
@@ -531,7 +549,7 @@ st.callback.register('mach1ne_counterfeit:startWork', function(src, id, wantPref
     Work[o.id] = { src = src, identifier = identifier, batches = batches, finishAt = now() + duration - 1,
                    startMs = GetGameTimer(), prefix = prefix, batch = batch }
     o.data = { station = o.type, activeUntil = now() + duration, batches = batches, duration = duration }
-    TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data, 0)
+    toBucket(o.bucket, 'mach1ne_counterfeit:update', o.id, o.data, 0)
     return true, batches, duration * 1000
 end)
 
@@ -541,7 +559,7 @@ RegisterNetEvent('mach1ne_counterfeit:animStart', function(id)
     local w = Work[tonumber(id)]
     if not w or w.src ~= src then return end
     w.startMs = GetGameTimer()
-    TriggerClientEvent('mach1ne_counterfeit:animSync', -1, tonumber(id), 0)
+    toBucket(Objects[tonumber(id)].bucket, 'mach1ne_counterfeit:animSync', tonumber(id), 0)
 end)
 
 local function inputItems(def, batches, batch)
@@ -574,7 +592,7 @@ local function endWork(o, w, how)
         queueRefund(w.identifier, def, w.batches, carried)
     end
     o.data = { station = o.type }
-    TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
+    toBucket(o.bucket, 'mach1ne_counterfeit:update', o.id, o.data)
 end
 
 st.callback.register('mach1ne_counterfeit:cancelWork', function(src, id)
@@ -664,8 +682,11 @@ end)
 local function payRefunds(src, identifier)
     local rows = MySQL.query.await('SELECT id, items FROM m1_counterfeit_refunds WHERE identifier = ?', { identifier }) or {}
     if #rows == 0 then return end
-    MySQL.query.await('DELETE FROM m1_counterfeit_refunds WHERE identifier = ?', { identifier })
-    for _, row in ipairs(rows) do giveOrDrop(src, json.decode(row.items) or {}) end
+    for _, row in ipairs(rows) do
+        if not GetPlayerName(src) then return end          -- logget ud undervejs: resten venter til næste login
+        giveOrDrop(src, json.decode(row.items) or {})
+        MySQL.query.await('DELETE FROM m1_counterfeit_refunds WHERE id = ?', { row.id })
+    end
     TriggerClientEvent('mach1ne_counterfeit:notify', src, locale('refund_paid'), 'inform')
     log(src, ('fik %d gemt(e) refundering(er)'):format(#rows))
 end
@@ -788,10 +809,9 @@ st.callback.register('mach1ne_counterfeit:scanDesk', function(src, id)
     local screen = {
         at = now(), serials = #list, total = total,
         serial = first and first.serial or nil, created = first and first.createdText or nil,
-        pos = first and first.pos or nil,
     }
     o.data.scan = screen
-    TriggerClientEvent('mach1ne_counterfeit:update', -1, o.id, o.data)
+    toBucket(o.bucket, 'mach1ne_counterfeit:update', o.id, o.data)
     log(src, ('scannede %d bundt(er) ved UV-scanner #%d'):format(total, o.id))
     return true, list, plates
 end)
@@ -835,6 +855,16 @@ st.callback.register('mach1ne_counterfeit:getRate', function()
     return GlobalState.m1cfRate
 end)
 
+-- Udbetaling for et salg: gennemsnittet af kursen før og efter, så store salg trækker prisen ned undervejs.
+local function sellPay(amount, bonus)
+    local S = Config.Dealer.sell
+    local after = math.max(S.minRate, Rate.value - S.dropPerBundle * amount)
+    local pay = math.floor(Config.Bundle.value * amount * (Rate.value + after) / 2 * (bonus or 1.0))
+    Rate.value = after
+    publishRate()
+    return pay
+end
+
 local function dealerNear(src)
     local c = Config.Dealer.coords
     return #(playerPos(src) - vec3(c.x, c.y, c.z)) <= 5.0
@@ -874,10 +904,8 @@ st.callback.register('mach1ne_counterfeit:sell', function(src, amount)
     local xPlayer = ESX.GetPlayerFromId(src)
     if not xPlayer then return false end
     if not ox:RemoveItem(src, Config.Items.bundle, amount) then return false, locale('err_not_enough_bundles') end
-    local pay = math.floor(Config.Bundle.value * Rate.value * amount)
+    local pay = sellPay(amount)
     xPlayer.addAccountMoney(S.account, pay)
-    Rate.value = math.max(S.minRate, Rate.value - S.dropPerBundle * amount)
-    publishRate()
     log(src, ('solgte %d bundt(er) til hæleren for %d'):format(amount, pay))
     return true, pay
 end)
@@ -923,11 +951,8 @@ st.callback.register('mach1ne_counterfeit:courierDeliver', function(src)
     end
     local xPlayer = ESX.GetPlayerFromId(src)
     if not xPlayer or not ox:RemoveItem(src, Config.Items.bundle, job.bundles) then return false, locale('err_failed') end
-    local S = Config.Dealer.sell
-    local pay = math.floor(Config.Bundle.value * Rate.value * C.bonus * job.bundles)
-    xPlayer.addAccountMoney(S.account, pay)
-    Rate.value = math.max(S.minRate, Rate.value - S.dropPerBundle * job.bundles)
-    publishRate()
+    local pay = sellPay(job.bundles, C.bonus)
+    xPlayer.addAccountMoney(Config.Dealer.sell.account, pay)
     Courier[src] = nil
     log(src, ('leverede %d bundter som kurer for %d'):format(job.bundles, pay))
     return true, pay, job.bundles
@@ -955,6 +980,16 @@ local function vaultOpen(src)
     return okc and crew
 end
 
+-- Genstartes kun dette script, mens boksen stadig er åben, er pressen stadig taget (gemt i KVP).
+CreateThread(function()
+    Wait(2000)
+    if GetResourceKvpInt('m1cf_heist_taken') == 1 and vaultOpen() then
+        GlobalState.m1cfHeistPress = 'taken'
+    else
+        DeleteResourceKvp('m1cf_heist_taken')
+    end
+end)
+
 st.callback.register('mach1ne_counterfeit:heistTake', function(src)
     if not H.enabled then return false end
     if GlobalState.m1cfHeistPress == 'taken' then return false, locale('heist_taken') end
@@ -962,8 +997,32 @@ st.callback.register('mach1ne_counterfeit:heistTake', function(src)
     if #(playerPos(src) - vec3(c.x, c.y, c.z)) > 4.0 then return false, locale('err_too_far') end
     if not vaultOpen(src) then return false, locale('heist_locked') end
     GlobalState.m1cfHeistPress = 'taken'
+    SetResourceKvpInt('m1cf_heist_taken', 1)
     giveOrDrop(src, { { 'cf_press', 1 } })
     log(src, 'stjal en trykpresse i Union-heistet')
     return true
 end)
 
+-- ===================== Selvtest =====================
+-- `cfselftest` i serverkonsollen: tjekker at pickBatch / possibleBatches / takeInput vælger og tager den rigtige
+-- batch af ark i et midlertidigt stash. Fejler den, virker tørresnor/skæremaskine/tæller ikke med denne ox_inventory.
+RegisterCommand('cfselftest', function(src)
+    if src ~= 0 then return end
+    local inv = 'm1cf_selftest'
+    ox:RegisterStash(inv, 'selftest', 20, 100000)
+    ox:ClearInventory(inv)
+    local a, b = { prefix = 'AA', press = 'KO-11111' }, { prefix = 'BB', press = 'KO-22222' }
+    ox:AddItem(inv, 'cf_sheet', 3, batchMeta(a))
+    ox:AddItem(inv, 'cf_sheet', 5, batchMeta(b))
+    local def = Config.Stations.cf_cutter
+    local batch, groups = pickBatch(inv, def.carry)
+    local ok, err = pcall(function()
+        assert(batch and batch.prefix == 'BB', 'pickBatch skulle vælge BB (flest ark)')
+        assert(possibleBatches(inv, def, batch, groups) == 5, 'possibleBatches skulle give 5')
+        assert(takeInput(inv, def, 4, batch), 'takeInput fejlede')
+        assert(ox:GetItemCount(inv, 'cf_sheet', { prefix = 'BB' }, false) == 1, 'der skulle være 1 BB-ark tilbage')
+        assert(ox:GetItemCount(inv, 'cf_sheet', { prefix = 'AA' }, false) == 3, 'AA-arkene må ikke røres')
+    end)
+    ox:ClearInventory(inv)
+    print(ok and '^2[mach1ne_counterfeit] selvtest OK^0' or ('^1[mach1ne_counterfeit] selvtest FEJL: %s^0'):format(err))
+end, true)
