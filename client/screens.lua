@@ -119,9 +119,11 @@ local function nearest(me)
             if d <= max and (not best[typ] or d < best[typ].d) then best[typ] = { o = o, d = d } end
         end
     end
-    if boardObj and DoesEntityExist(boardObj) then
+    if boardObj and DoesEntityExist(boardObj) then      -- den faste skærm ved hæleren (hvis slået til)
         local d = #(me - GetEntityCoords(boardObj))
-        if d <= (SC.types.board.distance or SC.distance) then best.board = { d = d } end
+        if d <= (SC.types.board.distance or SC.distance) and (not best.board or d < best.board.d) then
+            best.board = { d = d }
+        end
     end
     return best
 end
@@ -224,7 +226,14 @@ function CF.removeBoard()
     boardObj = nil
 end
 
--- ===================== Laptop og UV-scanner (handlinger) =====================
+-- ===================== Laptop, UV-scanner og kursskærm (handlinger) =====================
+
+function CF.showRate()
+    local r = GlobalState.m1cfRate
+    if not r then return CF.notify(locale('rate_unknown'), 'inform') end
+    local trend = r.trend > 0 and locale('rate_up') or (r.trend < 0 and locale('rate_down') or locale('rate_flat'))
+    CF.notify(locale('rate_now', r.price, math.floor(r.rate * 100 + 0.5), trend), 'inform')
+end
 
 local STATE_KEYS = { empty = 'st_empty', working = 'st_working', done = 'st_done', spoiled = 'st_spoiled', active = 'st_active', idle = 'st_empty' }
 

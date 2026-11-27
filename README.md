@@ -86,6 +86,7 @@ Med ox_target sigter du bare på tingen og vælger i menuen. Med 3D-tekst bruger
 | Arbejdsbord | | Pak sammen | Beslaglæg |
 | Laptop | Se dine maskiner | Pak sammen | Beslaglæg |
 | UV-scanner (bord) | Scan bundter (kun politi) | Pak sammen | |
+| Kursskærm | Se kursen | Pak sammen | Beslaglæg |
 
 Står dit værksted inde i et hus, kan kun folk, der er inde i huset, se det.
 
@@ -99,11 +100,13 @@ Flere af tingene har en skærm, der viser hvad der sker lige nu:
 | **Tørresnor** | En fugtmåler, der falder, mens arkene tørrer, og skriver *TØR*, når de er klar |
 | **Laptop** | Alle maskiner i nærheden: om de er tomme, kører eller er færdige, og hvor lang tid der er tilbage |
 | **UV-scanner (bord)** | Resultatet af politiets seneste scanning: *FALSK*, serienummer, område og dato |
-| **Kurstavle ved hæleren** | Hvad han betaler for et bundt lige nu, om prisen er på vej op eller ned, og hvor stor efterspørgslen er |
+| **Kursskærm** | Hvad hæleren betaler for et bundt lige nu, om prisen er på vej op eller ned, og hvor stor efterspørgslen er |
 
 Står der flere af samme slags, er det den, du står tættest på, der er tændt.
 
 **Hælerens pris** falder, når der bliver solgt mange bundter, og stiger langsomt igen, når der er roligt. Det kan du justere under `Config.Dealer.sell`.
+
+**Kursskærmen** køber du hos hæleren og stiller op, hvor du vil, fx i dit værksted. Så kan du holde øje med prisen og sælge, når den er høj. Vil du også have en fast skærm ved hæleren, så sæt `Config.Dealer.board.enabled = true`.
 
 ## Politiet
 
@@ -125,7 +128,7 @@ Alt kan ændres i [`config.lua`](config.lua):
 | `Config.Bundle` | Hvor mange sedler der er i et bundt, og hvad det er værd |
 | `Config.Noise` | Hvor tit naboerne ringer |
 | `Config.Police` | Hvilke jobs der tæller som politi |
-| `Config.Dealer` | Hvor hæleren og kurstavlen står, hvad han sælger, og hvordan prisen svinger |
+| `Config.Dealer` | Hvor hæleren står, hvad han sælger, hvordan prisen svinger, og om der skal stå en fast kursskærm ved ham |
 | `Config.StationLimits` og `Config.Props` | Hvor mange maskiner hver spiller må have |
 
 ## Animationer

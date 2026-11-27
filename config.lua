@@ -137,6 +137,11 @@ Config.Props = {
         label = 'UV-scanner', maxPerPlayer = 2, uiHeight = 0.4, screen = 'uv', police = true,
         models = { default = { 'm1_cf_uvscanner', 'prop_cs_server_drive' } },
     },
+    -- Kursskærm: viser hælerens kurs live, så du kan følge med fra dit eget værksted. E viser kursen.
+    cf_priceboard = {
+        label = 'Kursskærm', maxPerPlayer = 2, uiHeight = 1.75, screen = 'board',
+        models = { default = { 'm1_cf_priceboard', 'prop_tv_flat_01' } },
+    },
 }
 
 -- ============================================================
@@ -205,7 +210,7 @@ Config.Police = {
 -- ============================================================
 Config.Dealer = {
     enabled  = true,
-    coords   = vector4(1240.6, -3179.2, 7.1, 270.0),    -- Elysian Island (skift frit)
+    coords   = vector4(-28.7189, -2663.7817, 6.0043, 235.1031),    -- Elysian Island (skift frit)
     model    = 'mp_m_counterfeit_01',
     scenario = 'WORLD_HUMAN_SMOKING',
     account  = 'money',            -- betaling for varer
@@ -220,7 +225,9 @@ Config.Dealer = {
         recoverPerHour = 0.03,     -- så meget stiger den igen pr. time (mod 'rate', og lidt over i rolige perioder)
     },
     -- Kurstavle ved hæleren (skærm med dagens kurs). offset er i forhold til hæleren.
-    board = { enabled = true, offset = vec3(1.4, 0.4, -1.0), headingOffset = 180.0 },  -- 180 = skærmen vender samme vej som hæleren
+    -- Fast kursskærm ved hæleren. Slået fra som standard: spillerne køber selv en kursskærm (cf_priceboard)
+    -- og stiller den op, hvor de vil. Sæt enabled = true for også at have en fast skærm ved hæleren.
+    board = { enabled = false, offset = vec3(1.4, 0.4, -1.0), headingOffset = 180.0 },  -- 180 = skærmen vender samme vej som hæleren
     items = {
         { name = 'cf_paper',   label = 'Bomuldspapir',      price = 150 },
         { name = 'cf_ink',     label = 'Sikkerhedsblæk',    price = 400 },
@@ -231,6 +238,7 @@ Config.Dealer = {
         { name = 'cf_counter', label = 'Sedeltæller',       price = 4500 },
         { name = 'cf_table',   label = 'Arbejdsbord',       price = 1500 },
         { name = 'cf_laptop',  label = 'Laptop',            price = 2500 },
+        { name = 'cf_priceboard', label = 'Kursskærm',      price = 3500 },
     },
 }
 

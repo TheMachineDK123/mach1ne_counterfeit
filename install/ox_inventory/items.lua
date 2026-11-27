@@ -72,6 +72,11 @@
 		description = 'Viser status for maskinerne i dit værksted',
 		client = { image = 'm1f_cf_laptop.png', export = 'mach1ne_counterfeit.useProp' },
 	},
+	['cf_priceboard'] = {
+		label = 'Kursskærm', weight = 12000, stack = true, close = true, consume = 0,
+		description = 'Viser hvad hæleren betaler for et bundt lige nu. Stil den op hvor du vil',
+		client = { image = 'm1f_cf_priceboard.png', export = 'mach1ne_counterfeit.useProp' },
+	},
 	['cf_uvscanner'] = {
 		label = 'UV-scanner (bord)', weight = 4000, stack = true, close = true, consume = 0,
 		description = 'Politiets scanner til falske sedler. Stil den på et bord',

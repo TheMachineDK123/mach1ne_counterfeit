@@ -184,6 +184,8 @@ local function buildOptions(o, t)
             add(locale('ui_laptop'), 'E', 38, 0.0, function() CF.openLaptop(id) end)
         elseif def.screen == 'uv' then
             add(locale('ui_uv_scan'), 'E', 38, 0.0, function() CF.scanDesk(id) end, canPolice)
+        elseif def.screen == 'board' then
+            add(locale('ui_rate'), 'E', 38, 0.0, function() CF.showRate() end)
         end
         add(locale('ui_pickup', def.label:lower()), 'G', 47, 0.25, function() CF.pickup(id) end)
     end

@@ -127,5 +127,11 @@
     "err_no_space": "Der er ikke plads foran maskinen - flyt den eller ryd vejen",
     "drop_label": "Falskmøntner",
     "items_dropped": "Du kunne ikke bære det hele - resten ligger på jorden",
-    "refund_paid": "Du har fået materialerne tilbage fra sidst, du loggede ud midt i arbejdet"
+    "refund_paid": "Du har fået materialerne tilbage fra sidst, du loggede ud midt i arbejdet",
+    "ui_rate": "Se kursen",
+    "rate_unknown": "Kursen er ikke kendt endnu",
+    "rate_now": "Hæleren betaler %d kr. pr. bundt (%d%%) - %s",
+    "rate_up": "på vej op",
+    "rate_down": "på vej ned",
+    "rate_flat": "stabil"
 }

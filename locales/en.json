@@ -127,5 +127,11 @@
     "err_no_space": "There's no room in front of the machine - move it or clear the way",
     "drop_label": "Counterfeit",
     "items_dropped": "You couldn't carry everything - the rest is on the ground",
-    "refund_paid": "You got your materials back from when you logged out mid-work"
+    "refund_paid": "You got your materials back from when you logged out mid-work",
+    "ui_rate": "Check the rate",
+    "rate_unknown": "The rate is not known yet",
+    "rate_now": "The fence pays $%d per bundle (%d%%) - %s",
+    "rate_up": "going up",
+    "rate_down": "going down",
+    "rate_flat": "steady"
 }
